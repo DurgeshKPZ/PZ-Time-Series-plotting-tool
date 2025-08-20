@@ -1,0 +1,59 @@
+/* Dropzone container */
+body {
+  background-color: black;
+  color: white;
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+canvas {
+  background-color: rgb(248, 240, 240);
+}
+.dropzone {
+  border: 2px dashed #888;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  background-color: #fafafa;
+  color: #555;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+  cursor: pointer;
+}
+
+/* When dragging files over */
+.dropzone.drag-active {
+  border-color: #4cafef;
+  background-color: #f0faff;
+  color: #0a66c2;
+}
+
+/* Optional hover state for better UX */
+.dropzone:hover {
+  border-color: black;
+
+}
+
+
+/* Inner text styling */
+.dropzone p {
+  font-size: 16px;
+  margin: 0;
+}
+.App {
+  text-align: center;
+  padding: 40px;
+}
+
+.dropzone {
+  border: 2px dashed #888;
+  border-radius: 10px;
+  padding: 30px;
+  cursor: pointer;
+  margin-bottom: 30px;
+  transition: border-color 0.2s;
+}
+
+.drag-active {
+  border-color: #2196f3;
+  background-color: #f0f8ff;
+}

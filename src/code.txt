@@ -1,0 +1,208 @@
+
+// // updated code snippet
+// import React, { useState } from "react";
+// import { useDropzone } from "react-dropzone";
+// import "chart.js/auto"; // ✅ Auto-registers everything for chart.js
+// import { Line } from "react-chartjs-2";
+// import "./App.css";
+
+// export default function App() {
+//   const [dataRows, setDataRows] = useState([]);
+//   const [availableColumns, setAvailableColumns] = useState([]);
+//   const [selectedColumns, setSelectedColumns] = useState([]);
+//   const [columnUnits, setColumnUnits] = useState({});
+
+//   const onDrop = (acceptedFiles) => {
+//     const file = acceptedFiles[0];
+//     if (!file) return;
+
+//     const reader = new FileReader();
+
+//     reader.onload = (e) => {
+//       const lines = e.target.result
+//         .split(/\r?\n/)
+//         .filter((line) => line.trim() !== "");
+
+//       // Find header and unit lines
+//       const headerIndex = lines.findIndex((line) => line.includes("Time"));
+//       const unitIndex = headerIndex + 1;
+
+//       const headers = lines[headerIndex].trim().split(/\s+/);
+//       const units = lines[unitIndex]?.trim().split(/\s+/) || [];
+
+//       const unitMap = {};
+//       headers.forEach((h, i) => {
+//         unitMap[h] = units[i] || "";
+//       });
+
+//       setColumnUnits(unitMap);
+//       setAvailableColumns(headers.filter((h) => h !== "Time"));
+
+//       // Parse data
+//       const data = lines.slice(unitIndex + 1).map((line) => {
+//         const values = line.trim().split(/\s+/).map(parseFloat);
+//         return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+//       });
+
+//       setDataRows(data);
+//     };
+
+//     reader.readAsText(file);
+//   };
+
+//   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+//     onDrop,
+//     accept: { "text/plain": [".out", ".txt"] },
+//   });
+
+//   return (
+//     <div className="App" style={{ padding: "20px" }}>
+//       <h2>📊 Wind Turbine .out File Viewer</h2>
+
+//       {/* 🔽 File Drop */}
+//       <div
+//         {...getRootProps({
+//           className: `dropzone ${isDragActive ? "drag-active" : ""}`,
+//         })}
+//         style={{
+//           border: "2px dashed #aaa",
+//           padding: "20px",
+//           borderRadius: "10px",
+//           textAlign: "center",
+//           background: "#1c1c1c",
+//           color: "white",
+//         }}
+//       >
+//         <input {...getInputProps()} />
+//         {isDragActive ? (
+//           <p>Drop your .out file here...</p>
+//         ) : (
+//           <p>Drag & drop a `.out` file or click to select</p>
+//         )}
+//       </div>
+
+//       {/* 🔘 Column Selector + Graphs */}
+//       {availableColumns.length > 0 && (
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "flex-start",
+//             gap: "40px",
+//             marginTop: "30px",
+//           }}
+//         >
+//           {/* ✅ LEFT PANEL - Column Checkboxes */}
+//           <div
+//             style={{
+//               color: "white",
+//               minWidth: "250px",
+//               textAlign: "left",
+//               display: "flex",
+//               flexDirection: "column",
+//               alignItems: "flex-start",
+//             }}
+//           >
+//             <h3>Select Y-Axes</h3>
+//             {availableColumns.map((col) => (
+//               <label
+//                 key={col}
+//                 style={{
+//                   marginBottom: "8px",
+//                   display: "flex",
+//                   alignItems: "center",
+//                   gap: "6px",
+//                 }}
+//               >
+//                 <input
+//                   type="checkbox"
+//                   checked={selectedColumns.includes(col)}
+//                   onChange={() =>
+//                     setSelectedColumns((prev) =>
+//                       prev.includes(col)
+//                         ? prev.filter((c) => c !== col)
+//                         : [...prev, col]
+//                     )
+//                   }
+//                 />
+//                 {col} {columnUnits[col] ? `(${columnUnits[col]})` : ""}
+//               </label>
+//             ))}
+//           </div>
+
+//           {/* 📈 RIGHT PANEL - Graphs */}
+//           <div
+//             style={{
+//               display: "flex",
+//               flexWrap: "wrap",
+//               gap: "30px",
+//               flex: 1,
+//             }}
+//           >
+//             {selectedColumns.map((col) => {
+//               const y = dataRows.map((row) => row[col]);
+//               const x = dataRows.map((row) => row["Time"]);
+
+//               const yMin = Math.min(...y);
+//               const yMax = Math.max(...y);
+//               const range = yMax - yMin;
+//               const pad = range < 1e-5 ? 1 : range * 0.1;
+
+//               const data = {
+//                 labels: x,
+//                 datasets: [
+//                   {
+//                     label: `${col} ${
+//                       columnUnits[col] ? `(${columnUnits[col]})` : ""
+//                     }`,
+//                     data: y,
+//                     borderColor: "#000",
+//                     backgroundColor: "rgba(0, 0, 0, 0.1)",
+//                     pointRadius: 0,
+//                     tension: 0,
+//                   },
+//                 ],
+//               };
+
+//               const options = {
+//                 responsive: true,
+//                 animation: false,
+//                 scales: {
+//                   y: {
+//                     min: yMin - pad,
+//                     max: yMax + pad,
+//                     title: {
+//                       display: true,
+//                       text: `${col} ${
+//                         columnUnits[col] ? `(${columnUnits[col]})` : ""
+//                       }`,
+//                     },
+//                   },
+//                   x: {
+//                     title: {
+//                       display: true,
+//                       text: "Time (s)",
+//                     },
+//                     type: "linear",
+//                   },
+//                 },
+//                 plugins: {
+//                   legend: { position: "top" },
+//                   title: {
+//                     display: true,
+//                     text: `Plot: ${col}`,
+//                   },
+//                 },
+//               };
+
+//               return (
+//                 <div key={col} style={{ width: "48%" }}>
+//                   <Line data={data} options={options} redraw />
+//                 </div>
+//               );
+//             })}
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
