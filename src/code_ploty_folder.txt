@@ -1,5 +1,4 @@
-// App.js
-import React, { useState, useMemo } from "react";
+    import React, { useState, useMemo, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import Plot from "react-plotly.js";
 import "./AppTest.css";
@@ -9,13 +8,32 @@ export default function App() {
   const [availableColumns, setAvailableColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [columnUnits, setColumnUnits] = useState({});
+  const [outFiles, setOutFiles] = useState([]);
+  const [chosenFile, setChosenFile] = useState(null);
 
   const onDrop = (acceptedFiles) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+    const outFiles = acceptedFiles.filter((file) =>
+      file.name.endsWith(".out")
+    );
+    setOutFiles(outFiles);
+    setChosenFile(null);
+    setAvailableColumns([]);
+    setSelectedColumns([]);
+    setDataRows([]);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    // 👇 Allow folder selection
+    noClick: false,
+    noKeyboard: false,
+    multiple: true,
+  });
+
+  useEffect(() => {
+    if (!chosenFile) return;
 
     const reader = new FileReader();
-
     reader.onload = (e) => {
       const lines = e.target.result
         .split(/\r?\n/)
@@ -49,13 +67,8 @@ export default function App() {
       setDataRows(data);
     };
 
-    reader.readAsText(file);
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "text/plain": [".out", ".txt", ".xls", ".xlsx"] },
-  });
+    reader.readAsText(chosenFile);
+  }, [chosenFile]);
 
   const downsample = (x, y, maxPoints = 10000) => {
     const length = x.length;
@@ -97,10 +110,7 @@ export default function App() {
             {
               x: xd,
               y: yd,
-              //this is to plot more than 8 plots
-              type: "scatterg",
-              // //this is to plot upto   8 plots
-              // type: "scattergl",
+              type: "scatter", // Changed to SVG to avoid blank plots
               mode: "lines",
               name: col,
               line: { color: "#000" },
@@ -142,14 +152,14 @@ export default function App() {
           },
         };
       })
-      .filter(Boolean); // removes nulls
+      .filter(Boolean);
   }, [selectedColumns, dataRows, columnUnits]);
 
   return (
     <div className="App" style={{ padding: "20px" }}>
-      <h2>📊 Wind Turbine .out File Viewer (Plotly)</h2>
+      <h2>📂 Wind Turbine .out Folder Viewer (Plotly)</h2>
 
-      {/* File Drop Zone */}
+      {/* Dropzone */}
       <div
         {...getRootProps({
           className: `dropzone ${isDragActive ? "drag-active" : ""}`,
@@ -163,13 +173,37 @@ export default function App() {
           color: "white",
         }}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} webkitdirectory="true" directory="" />
         {isDragActive ? (
-          <p>Drop your .out file here...</p>
+          <p>Drop your folder here...</p>
         ) : (
-          <p>Drag & drop a `.out` file or click to select</p>
+          <p>Drag & drop a folder of `.out` files or click to select</p>
         )}
       </div>
+
+      {/* File Dropdown */}
+      {outFiles.length > 0 && (
+        <div style={{ margin: "20px 0", color: "white" }}>
+          <label>Select a file: </label>
+          <select
+            onChange={(e) => {
+              const selected = outFiles.find((f) => f.name === e.target.value);
+              setChosenFile(selected);
+              setSelectedColumns([]); // clear previous selections
+            }}
+            defaultValue=""
+          >
+            <option value="" disabled>
+              -- Choose a file --
+            </option>
+            {outFiles.map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.webkitRelativePath || f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Columns + Plots */}
       {availableColumns.length > 0 && (
@@ -192,7 +226,6 @@ export default function App() {
             }}
           >
             <h3>Select Y-Axes</h3>
-
             {availableColumns.map((col) => (
               <label
                 key={col}
@@ -219,7 +252,7 @@ export default function App() {
             ))}
           </div>
 
-          {/* Plotly Graphs */}
+          {/* Plots */}
           <div
             style={{
               display: "flex",

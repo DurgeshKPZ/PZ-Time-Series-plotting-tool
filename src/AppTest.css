@@ -77,3 +77,13 @@ body, html, #root, .App {
     grid-template-columns: 1fr;
   }
 }
+/* AppTest.css */
+.dropzone {
+  transition: 0.3s ease;
+  border-color: #999;
+}
+
+.drag-active {
+  border-color: #33ccff;
+}
+
