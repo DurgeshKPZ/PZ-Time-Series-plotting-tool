@@ -1,495 +1,454 @@
-// import React, { useState } from "react";
-// import { useDropzone } from "react-dropzone";
-// import axios from "axios";
-// // this is comment
-// import {
-//   Chart as ChartJS,
-//   LineElement,
-//   PointElement,
-//   CategoryScale,
-//   LinearScale,
-//   Title,
-//   Tooltip,
-//   Legend,
-// } from "chart.js";
-// import { Line } from "react-chartjs-2";
-// import "./App.css";
-
-// ChartJS.register(
-//   LineElement,
-//   PointElement,
-//   CategoryScale,
-//   LinearScale,
-//   Title,
-//   Tooltip,
-//   Legend
-// );
-
-// const getRandomColor = () => "#282727ff"; // Always return black
-
-// export default function App() {
-//   const [excelData, setExcelData] = useState([]);
-//   const [selectedAxis, setSelectedAxis] = useState(""); // Radio selected column
-//   const [availableAxes, setAvailableAxes] = useState([]);
-//   const [showChart, setShowChart] = useState(true);
-//   const [columnUnits, setColumnUnits] = useState({});
-
-//   const handleAxisChange = (axis) => {
-//     setSelectedAxis(axis);
-//   };
-
-//   const onDrop = (acceptedFiles) => {
-//     const file = acceptedFiles[0];
-//     if (!file) {
-//       alert("Please upload a file.");
-//       return;
-//     }
-
-//     if (file.name.endsWith(".out") || file.name.endsWith(".txt")) {
-//       const reader = new FileReader();
-
-//       reader.onload = async (e) => {
-//         const text = e.target.result;
-//         const lines = text
-//           .split("\n")
-//           .map((line) => line.trim())
-//           .filter(Boolean);
-
-//         const headerLineIndex = lines.findIndex((line) =>
-//           line.startsWith("Time")
-//         );
-//         if (headerLineIndex === -1) {
-//           alert("❌ Header row not found in .out file.");
-//           return;
-//         }
-
-//         const unitLineIndex = headerLineIndex + 1;
-
-//         const headers = lines[headerLineIndex].split(/\s+/);
-//         const unitsLine = lines[unitLineIndex]?.split(/\s+/) || [];
-
-//         const columnUnitMap = {};
-//         headers.forEach((h, idx) => {
-//           const unit = unitsLine[idx] || "";
-//           columnUnitMap[h] = unit;
-//         });
-//         setColumnUnits(columnUnitMap);
-
-//         const dataLines = lines.slice(unitLineIndex + 1);
-
-//         const parsedData = dataLines.map((line) => {
-//           const values = line.split(/\s+/).map(Number);
-//           return Object.fromEntries(
-//             values.map((val, idx) => [headers[idx], val])
-//           );
-//         });
-
-//         setExcelData(parsedData);
-
-//         const yAxes = headers.filter((h) => h !== "Time");
-//         setAvailableAxes(yAxes);
-//         setSelectedAxis(yAxes[0] || "");
-
-//         // Optional: Upload to backend
-//         // try {
-//         //   await axios.post("http://localhost:5000/api/userKPZ", {
-//         //     data: parsedData,
-//         //   });
-//         //   alert("✅ Data uploaded to MongoDB.");
-//         // } catch (error) {
-//         //   console.error(error.message);
-//         //   alert("❌ Failed to upload to MongoDB.");
-//         // }
-//       };
-
-//       reader.readAsText(file);
-//     } else {
-//       alert("Please upload a valid .out or .txt file.");
-//     }
-//   };
-
-//   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-//     onDrop,
-//     accept: {
-//       "text/plain": [".out", ".txt"],
-//     },
-//   });
-
-//   const chartData = {
-//     labels: excelData.map((row) => Number(row["Time"]) ?? "Unknown"),
-//     datasets: selectedAxis
-//       ? [
-//           {
-//             label: selectedAxis,
-//             data: excelData.map((row) => Number(row[selectedAxis]) || 0),
-//             borderColor: getRandomColor(selectedAxis),
-//             backgroundColor: "rgba(0,0,0,0)",
-//             tension: 0,
-//             pointRadius: 0,
-//           },
-//         ]
-//       : [],
-//   };
-
-//   // Calculate Y-axis scale padding
-//   const yValues = chartData.datasets[0]?.data || [];
-//   const yMin = Math.min(...yValues);
-//   const yMax = Math.max(...yValues);
-//   const yRange = yMax - yMin;
-
-//   // Smart padding: if values barely change, apply a fixed zoom-out
-//   const yPadding = yRange < 1e-5 ? 1 : yRange * 0.1;
-
-//   const chartOptions = {
-//     responsive: true,
-//     animation: false,
-//     scales: {
-//       y: {
-//         min: yMin - yPadding,
-//         max: yMax + yPadding,
-//         title: {
-//           display: true,
-//           text: selectedAxis
-//             ? `${selectedAxis} ${
-//                 columnUnits[selectedAxis] ? `${columnUnits[selectedAxis]}` : ""
-//               }`
-//             : "Y-Axis",
-//         },
-//       },
-//       x: {
-//         title: {
-//           display: true,
-//           text: "Time (s)",
-//         },
-//         type: "linear",
-//         min: Math.min(...chartData.labels),
-//         max: Math.max(...chartData.labels),
-//         ticks: {
-//           stepSize: 1,
-//         },
-//       },
-//     },
-//     plugins: {
-//       legend: {
-//         position: "top",
-//       },
-//       title: {
-//         display: true,
-//         text: "Line Chart for Selected Column",
-//       },
-//     },
-//   };
-
-//   return (
-//     <div className="App">
-//       <h2>Upload .out File to Plot Data</h2>
-
-//       <div
-//         {...getRootProps({
-//           className: `dropzone ${isDragActive ? "drag-active" : ""}`,
-//         })}
-//       >
-//         <input {...getInputProps()} />
-//         {isDragActive ? (
-//           <p>Drop the .out or .txt file here...</p>
-//         ) : (
-//           <p>Drag and drop a .out or .txt file here, or click to select</p>
-//         )}
-//       </div>
-
-//       {/* Show/Hide Chart Toggle */}
-//       <div style={{ marginTop: "20px", color: "white" }}>
-//         <label>
-//           <input
-//             type="checkbox"
-//             checked={showChart}
-//             onChange={() => setShowChart((prev) => !prev)}
-//           />
-//           &nbsp; Show Plot
-//         </label>
-//       </div>
-
-//       {/* Axis Selection + Chart */}
-//       {excelData.length > 0 && showChart ? (
-//         <div
-//           style={{
-//             display: "flex",
-//             justifyContent: "center",
-//             alignItems: "flex-start",
-//             gap: "20px",
-//             marginTop: "20px",
-//           }}
-//         >
-//           {/* Y-Axis Radio Buttons */}
-//           <div
-//             style={{
-//               color: "white",
-//               minWidth: "180px",
-//               textAlign: "left",
-//               display: "flex",
-//               flexDirection: "column",
-//               alignItems: "flex-start",
-//             }}
-//           >
-//             <p>Select Y-Axis (One at a time):</p>
-//             {availableAxes.map((axis) => (
-//               <label
-//                 key={axis}
-//                 style={{
-//                   display: "flex",
-//                   alignItems: "center",
-//                   marginBottom: "8px",
-//                   gap: "6px",
-//                 }}
-//               >
-//                 <input
-//                   type="radio"
-//                   name="y-axis"
-//                   checked={selectedAxis === axis}
-//                   onChange={() => handleAxisChange(axis)}
-//                 />
-//                 {axis} {columnUnits[axis] ? `${columnUnits[axis]}` : ""}
-//               </label>
-//             ))}
-//           </div>
-
-//           {/* Line Chart */}
-//           <div style={{ flex: 1 }}>
-//             {selectedAxis ? (
-//               <Line data={chartData} options={chartOptions} />
-//             ) : (
-//               <p style={{ color: "white" }}>Please select a column to plot.</p>
-//             )}
-//           </div>
-//         </div>
-//       ) : excelData.length === 0 ? (
-//         <p style={{ marginTop: "20px" }}>No data to display yet.</p>
-//       ) : null}
-//     </div>
-//   );
-// }
-
-// folder selection code
-// App.js
+// updated code snippet
 import React, { useState } from "react";
 import { useDropzone } from "react-dropzone";
-import "chart.js/auto";
+import "chart.js/auto"; // ✅ Auto-registers everything for chart.js
 import { Line } from "react-chartjs-2";
-import "./App.css";
-
-const getLineColor = () => "#000000"; // Black line
+import "./AppTest.css";
 
 export default function App() {
-  const [files, setFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [excelData, setExcelData] = useState([]);
-  const [availableAxes, setAvailableAxes] = useState([]);
-  const [selectedAxes, setSelectedAxes] = useState([]);
+  const [dataRows, setDataRows] = useState([]);
+  const [availableColumns, setAvailableColumns] = useState([]);
+  const [selectedColumns, setSelectedColumns] = useState([]);
   const [columnUnits, setColumnUnits] = useState({});
-  const [showChart, setShowChart] = useState(true);
+
+  const onDrop = (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const lines = e.target.result
+        .split(/\r?\n/)
+        .filter((line) => line.trim() !== "");
+
+      // Find header and unit lines
+      const headerIndex = lines.findIndex((line) => line.includes("Time"));
+      const unitIndex = headerIndex + 1;
+
+      const headers = lines[headerIndex].trim().split(/\s+/);
+      const units = lines[unitIndex]?.trim().split(/\s+/) || [];
+
+      const unitMap = {};
+      headers.forEach((h, i) => {
+        unitMap[h] = units[i] || "";
+      });
+
+      setColumnUnits(unitMap);
+      setAvailableColumns(headers.filter((h) => h !== "Time"));
+
+      // Parse data
+      const data = lines.slice(unitIndex + 1).map((line) => {
+        const values = line.trim().split(/\s+/).map(parseFloat);
+        return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+      });
+
+      setDataRows(data);
+    };
+
+    reader.readAsText(file);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      const onlyOut = acceptedFiles.filter(
-        (f) => f.name.endsWith(".out") || f.name.endsWith(".txt")
-      );
-      setFiles(onlyOut);
-      setExcelData([]);
-      setSelectedFile(null);
-      setAvailableAxes([]);
-      setSelectedAxes([]);
-      setColumnUnits({});
-    },
-    noClick: false,
-    multiple: true,
+    onDrop,
+    accept: { "text/plain": [".out", ".txt", ".xls", ".xlsx"] },
   });
 
-  const loadFile = async (file) => {
-    const text = await file.text();
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const headerIndex = lines.findIndex((l) => l.startsWith("Time"));
-    if (headerIndex < 0) return alert("Header row not found.");
-
-    const headers = lines[headerIndex].split(/\s+/);
-    const units = lines[headerIndex + 1]?.split(/\s+/) || [];
-    const unitMap = Object.fromEntries(
-      headers.map((h, i) => [h, units[i] || ""])
-    );
-
-    const rows = lines
-      .slice(headerIndex + 2)
-      .map((l) =>
-        Object.fromEntries(
-          l.split(/\s+/).map((v, i) => [headers[i], Number(v)])
-        )
-      );
-
-    setSelectedFile(file.name);
-    setExcelData(rows);
-    setAvailableAxes(headers.filter((h) => h !== "Time"));
-    setSelectedAxes([]);
-    setColumnUnits(unitMap);
-  };
-
-  const toggleAxis = (axis) =>
-    setSelectedAxes((prev) =>
-      prev.includes(axis) ? prev.filter((a) => a !== axis) : [...prev, axis]
-    );
-
-  const renderCharts = () => {
-    return selectedAxes.map((axis) => {
-      const yValues = excelData.map((row) => Number(row[axis]) || 0);
-      const yMin = Math.min(...yValues);
-      const yMax = Math.max(...yValues);
-      const yRange = yMax - yMin;
-      const yPadding = yRange < 1e-5 ? 1 : yRange * 0.1;
-
-      const chartData = {
-        labels: excelData.map((row) => Number(row["Time"]) ?? "Unknown"),
-        datasets: [
-          {
-            label: axis,
-            data: yValues,
-            borderColor: "#000", // black
-            backgroundColor: "rgba(0,0,0,0)",
-            tension: 0,
-            pointRadius: 0,
-          },
-        ],
-      };
-
-      const chartOptions = {
-        responsive: true,
-        animation: false,
-        maintainAspectRatio: false, // important for fixed height div
-        scales: {
-          y: {
-            min: yMin - yPadding,
-            max: yMax + yPadding,
-            title: {
-              display: true,
-              text: `${axis} ${columnUnits[axis] || ""}`,
-            },
-          },
-          x: {
-            title: {
-              display: true,
-              text: "Time (s)",
-            },
-            type: "linear",
-            ticks: {
-              stepSize: 1,
-            },
-          },
-        },
-      };
-
-      return (
-        <div key={axis} className="chart-box">
-          <Line data={chartData} options={chartOptions} />
-        </div>
-      );
-    });
-  };
-
   return (
-    <div className="App">
-      <h2>🚀 KPZ Plotting Tool — Folder Upload Support</h2>
+    <div className="App" style={{ padding: "20px" }}>
+      <h2>📊 Wind Turbine .out File Viewer</h2>
 
-      {/* Folder Upload Dropzone */}
-      <div {...getRootProps({ className: "dropzone" })}>
-        <input {...getInputProps()} webkitdirectory="true" />
-        <p>
-          {isDragActive
-            ? "Drop folder here..."
-            : "Drag a folder or click to select"}
-        </p>
+      {/* 🔽 File Drop */}
+      <div
+        {...getRootProps({
+          className: `dropzone ${isDragActive ? "drag-active" : ""}`,
+        })}
+        style={{
+          border: "2px dashed #aaa",
+          padding: "20px",
+          borderRadius: "10px",
+          textAlign: "center",
+          background: "#1c1c1c",
+          color: "white",
+        }}
+      >
+        <input {...getInputProps()} />
+        {isDragActive ? (
+          <p>Drop your .out file here...</p>
+        ) : (
+          <p>Drag & drop a `.out` file or click to select</p>
+        )}
       </div>
 
-      {/* File List Selection */}
-      {!!files.length && (
-        <div className="file-list">
-          <h3>Select a .out File to Parse</h3>
-          <ul>
-            {files.map((f, idx) => (
-              <li key={idx}>
-                <button onClick={() => loadFile(f)}>
-                  {f.webkitRelativePath}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Plots Section */}
-      {excelData.length > 0 && (
-        <div style={{ marginTop: "20px" }}>
-          {/* Show/Hide Checkbox */}
-          <label style={{ color: "white" }}>
-            <input
-              type="checkbox"
-              checked={showChart}
-              onChange={() => setShowChart((s) => !s)}
-            />{" "}
-            Show Plots
-          </label>
-
-          {showChart && (
-            <div
-              className="controls-charts"
-              style={{ display: "flex", gap: "20px" }}
+      {/*  Column Selector + Graphs */}
+      {availableColumns.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "40px",
+            marginTop: "30px",
+          }}
+        >
+          {/* ✅ LEFT PANEL - Column Checkboxes */}
+          <div
+            style={{
+              color: "white",
+              minWidth: "250px",
+              textAlign: "left",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <h3>Select Y-Axes</h3>
+            <label
+              style={{
+                marginBottom: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontWeight: "bold",
+              }}
             >
-              {/* Column Selection - Aligned Left */}
-              <div
-                className="axis-selector"
+              <input
+                type="checkbox"
+                checked={selectedColumns.length === availableColumns.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedColumns(availableColumns);
+                  } else {
+                    setSelectedColumns([]);
+                  }
+                }}
+              />
+              Select All
+            </label>
+            {availableColumns.map((col) => (
+              <label
+                key={col}
                 style={{
-                  color: "white",
-                  minWidth: "220px",
-                  textAlign: "left",
+                  marginBottom: "8px",
                   display: "flex",
-                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                <p style={{ marginBottom: "10px" }}>Select Columns to Plot:</p>
-                {availableAxes.map((axis) => (
-                  <label
-                    key={axis}
-                    className="axis-label"
-                    style={{ marginBottom: "8px" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedAxes.includes(axis)}
-                      onChange={() => toggleAxis(axis)}
-                    />{" "}
-                    {axis} {columnUnits[axis] || ""}
-                  </label>
-                ))}
-              </div>
+                <input
+                  type="checkbox"
+                  checked={selectedColumns.includes(col)}
+                  onChange={() =>
+                    setSelectedColumns((prev) =>
+                      prev.includes(col)
+                        ? prev.filter((c) => c !== col)
+                        : [...prev, col]
+                    )
+                  }
+                />
+                {col} {columnUnits[col] ? `${columnUnits[col]}` : ""}
+              </label>
+            ))}
+          </div>
 
-              {/* Charts Grid - 2 Charts Per Row */}
-              <div
-                className="charts-grid"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: "20px",
-                  width: "120%",
-                  maxWidth: "100vw",
-                  boxSizing: "border-box",
-                  backgroundColor: "#ffffffff",
-                }}
-              >
-                {renderCharts()}
-              </div>
-            </div>
-          )}
+          {/* 📈 RIGHT PANEL - Graphs */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "30px",
+              flex: 1,
+              backgroundColor: "#ffffffff",
+            }}
+          >
+            {selectedColumns.map((col) => {
+              const y = dataRows.map((row) => row[col]);
+              const x = dataRows.map((row) => row["Time"]);
+
+              const yMin = Math.min(...y);
+              const yMax = Math.max(...y);
+              const range = yMax - yMin;
+              const pad = range < 1e-5 ? 1 : range * 0.1;
+
+              const data = {
+                labels: x,
+                datasets: [
+                  {
+                    label: `${col} ${
+                      columnUnits[col] ? `${columnUnits[col]}` : ""
+                    }`,
+                    data: y,
+                    borderColor: "#000",
+                    pointRadius: 0,
+                    tension: 0,
+                  },
+                ],
+              };
+
+              const options = {
+                responsive: true,
+                animation: false,
+                scales: {
+                  y: {
+                    min: yMin - pad,
+                    max: yMax + pad,
+                    title: {
+                      display: true,
+                      text: `${col} ${
+                        columnUnits[col] ? `${columnUnits[col]}` : ""
+                      }`,
+                    },
+                  },
+                  x: {
+                    title: {
+                      display: true,
+                      text: "Time (s)",
+                    },
+                    type: "linear",
+                  },
+                },
+                plugins: {
+                  legend: { position: "top" },
+                  title: {
+                    display: true,
+                    text: `Plot: ${col}`,
+                  },
+                },
+              };
+
+              return (
+                <div key={col} style={{ width: "48%" }}>
+                  <Line data={data} options={options} redraw />
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+// folder selection code
+// App.js
+// import React, { useState } from "react";
+// import { useDropzone } from "react-dropzone";
+// import "chart.js/auto";
+// import { Line } from "react-chartjs-2";
+// import "./App.css";
+
+// const getLineColor = () => "#000000"; // Black line
+
+// export default function App() {
+//   const [files, setFiles] = useState([]);
+//   const [selectedFile, setSelectedFile] = useState(null);
+//   const [excelData, setExcelData] = useState([]);
+//   const [availableAxes, setAvailableAxes] = useState([]);
+//   const [selectedAxes, setSelectedAxes] = useState([]);
+//   const [columnUnits, setColumnUnits] = useState({});
+//   const [showChart, setShowChart] = useState(true);
+
+//   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+//     onDrop: (acceptedFiles) => {
+//       const onlyOut = acceptedFiles.filter(
+//         (f) => f.name.endsWith(".out") || f.name.endsWith(".txt")
+//       );
+//       setFiles(onlyOut);
+//       setExcelData([]);
+//       setSelectedFile(null);
+//       setAvailableAxes([]);
+//       setSelectedAxes([]);
+//       setColumnUnits({});
+//     },
+//     noClick: false,
+//     multiple: true,
+//   });
+
+//   const loadFile = async (file) => {
+//     const text = await file.text();
+//     const lines = text
+//       .split("\n")
+//       .map((l) => l.trim())
+//       .filter(Boolean);
+//     const headerIndex = lines.findIndex((l) => l.startsWith("Time"));
+//     if (headerIndex < 0) return alert("Header row not found.");
+
+//     const headers = lines[headerIndex].split(/\s+/);
+//     const units = lines[headerIndex + 1]?.split(/\s+/) || [];
+//     const unitMap = Object.fromEntries(
+//       headers.map((h, i) => [h, units[i] || ""])
+//     );
+
+//     const rows = lines
+//       .slice(headerIndex + 2)
+//       .map((l) =>
+//         Object.fromEntries(
+//           l.split(/\s+/).map((v, i) => [headers[i], Number(v)])
+//         )
+//       );
+
+//     setSelectedFile(file.name);
+//     setExcelData(rows);
+//     setAvailableAxes(headers.filter((h) => h !== "Time"));
+//     setSelectedAxes([]);
+//     setColumnUnits(unitMap);
+//   };
+
+//   const toggleAxis = (axis) =>
+//     setSelectedAxes((prev) =>
+//       prev.includes(axis) ? prev.filter((a) => a !== axis) : [...prev, axis]
+//     );
+
+//   const renderCharts = () => {
+//     return selectedAxes.map((axis) => {
+//       const yValues = excelData.map((row) => Number(row[axis]) || 0);
+//       const yMin = Math.min(...yValues);
+//       const yMax = Math.max(...yValues);
+//       const yRange = yMax - yMin;
+//       const yPadding = yRange < 1e-5 ? 1 : yRange * 0.1;
+
+//       const chartData = {
+//         labels: excelData.map((row) => Number(row["Time"]) ?? "Unknown"),
+//         datasets: [
+//           {
+//             label: axis,
+//             data: yValues,
+//             borderColor: "#000", // black
+//             backgroundColor: "rgba(0,0,0,0)",
+//             tension: 0,
+//             pointRadius: 0,
+//           },
+//         ],
+//       };
+
+//       const chartOptions = {
+//         responsive: true,
+//         animation: false,
+//         maintainAspectRatio: false, // important for fixed height div
+//         scales: {
+//           y: {
+//             min: yMin - yPadding,
+//             max: yMax + yPadding,
+//             title: {
+//               display: true,
+//               text: `${axis} ${columnUnits[axis] || ""}`,
+//             },
+//           },
+//           x: {
+//             title: {
+//               display: true,
+//               text: "Time (s)",
+//             },
+//             type: "linear",
+//             ticks: {
+//               stepSize: 1,
+//             },
+//           },
+//         },
+//       };
+
+//       return (
+//         <div key={axis} className="chart-box">
+//           <Line data={chartData} options={chartOptions} />
+//         </div>
+//       );
+//     });
+//   };
+
+//   return (
+//     <div className="App">
+//       <h2>🚀 KPZ Plotting Tool — Folder Upload Support</h2>
+
+//       {/* Folder Upload Dropzone */}
+//       <div {...getRootProps({ className: "dropzone" })}>
+//         <input {...getInputProps()} webkitdirectory="true" />
+//         <p>
+//           {isDragActive
+//             ? "Drop folder here..."
+//             : "Drag a folder or click to select"}
+//         </p>
+//       </div>
+
+//       {/* File List Selection */}
+//       {!!files.length && (
+//         <div className="file-list">
+//           <h3>Select a .out File to Parse</h3>
+//           <ul>
+//             {files.map((f, idx) => (
+//               <li key={idx}>
+//                 <button onClick={() => loadFile(f)}>
+//                   {f.webkitRelativePath}
+//                 </button>
+//               </li>
+//             ))}
+//           </ul>
+//         </div>
+//       )}
+
+//       {/* Plots Section */}
+//       {excelData.length > 0 && (
+//         <div style={{ marginTop: "20px" }}>
+//           {/* Show/Hide Checkbox */}
+//           <label style={{ color: "white" }}>
+//             <input
+//               type="checkbox"
+//               checked={showChart}
+//               onChange={() => setShowChart((s) => !s)}
+//             />{" "}
+//             Show Plots
+//           </label>
+
+//           {showChart && (
+//             <div
+//               className="controls-charts"
+//               style={{ display: "flex", gap: "20px" }}
+//             >
+//               {/* Column Selection - Aligned Left */}
+//               <div
+//                 className="axis-selector"
+//                 style={{
+//                   color: "white",
+//                   minWidth: "220px",
+//                   textAlign: "left",
+//                   display: "flex",
+//                   flexDirection: "column",
+//                 }}
+//               >
+//                 <p style={{ marginBottom: "10px" }}>Select Columns to Plot:</p>
+//                 {availableAxes.map((axis) => (
+//                   <label
+//                     key={axis}
+//                     className="axis-label"
+//                     style={{ marginBottom: "8px" }}
+//                   >
+//                     <input
+//                       type="checkbox"
+//                       checked={selectedAxes.includes(axis)}
+//                       onChange={() => toggleAxis(axis)}
+//                     />{" "}
+//                     {axis} {columnUnits[axis] || ""}
+//                   </label>
+//                 ))}
+//               </div>
+
+//               {/* Charts Grid - 2 Charts Per Row */}
+//               <div
+//                 className="charts-grid"
+//                 style={{
+//                   display: "grid",
+//                   gridTemplateColumns: "repeat(2, 1fr)",
+//                   gap: "20px",
+//                   width: "120%",
+//                   maxWidth: "100vw",
+//                   boxSizing: "border-box",
+//                   backgroundColor: "#ffffffff",
+//                 }}
+//               >
+//                 {renderCharts()}
+//               </div>
+//             </div>
+//           )}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
