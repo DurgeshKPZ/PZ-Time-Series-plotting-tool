@@ -97,10 +97,7 @@ export default function App() {
             {
               x: xd,
               y: yd,
-              //this is to plot more than 8 plots
-              type: "scatterg",
-              // //this is to plot upto   8 plots
-              // type: "scattergl",
+              type: "scattergl", // ✅ use "scattergl" for better performance
               mode: "lines",
               name: col,
               line: { color: "#000" },
@@ -111,6 +108,10 @@ export default function App() {
               text: `Plot: ${col}`,
               font: { size: 16, color: "#000" },
             },
+
+            // ✅ Added crosshair on hover configuration below
+            hovermode: "closest", // Enables closest point hover
+
             xaxis: {
               title: {
                 text: "Time (s)",
@@ -122,7 +123,15 @@ export default function App() {
               mirror: true,
               gridcolor: "#ccc",
               zeroline: false,
+
+              // ✅ Crosshair settings for X axis
+              showspikes: true,
+              spikemode: "across",
+              spikesnap: "cursor",
+              spikecolor: "red",
+              spikethickness: 1,
             },
+
             yaxis: {
               title: {
                 text: `${col}${columnUnits[col] ? ` ${columnUnits[col]}` : ""}`,
@@ -134,7 +143,15 @@ export default function App() {
               mirror: true,
               gridcolor: "#ccc",
               zeroline: false,
+
+              // ✅ Crosshair settings for Y axis
+              showspikes: true,
+              spikemode: "across",
+              spikesnap: "cursor",
+              spikecolor: "red",
+              spikethickness: 1,
             },
+
             margin: { t: 40, l: 60, r: 20, b: 60 },
             height: 300,
             plot_bgcolor: "#fff",
