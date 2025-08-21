@@ -97,7 +97,7 @@ export default function App() {
             {
               x: xd,
               y: yd,
-              type: "scattergl", // ✅ use "scattergl" for better performance
+              type: "scatterg", // ✅ use "scattergl" for better performance
               mode: "lines",
               name: col,
               line: { color: "#000" },
