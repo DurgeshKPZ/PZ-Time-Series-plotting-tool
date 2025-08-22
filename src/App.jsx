@@ -111,7 +111,6 @@ export default function App() {
 
             // ✅ Added crosshair on hover configuration below
             hovermode: "closest", // Enables closest point hover
-
             xaxis: {
               title: {
                 text: "Time (s)",
@@ -230,6 +229,13 @@ export default function App() {
                         : [...prev, col]
                     )
                   }
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    transform: "scale(1)",
+                    marginRight: "8px", // Optional: add spacing if needed
+                    cursor: "pointer", // Optional: makes it more user-friendly
+                  }}
                 />
                 {col} {columnUnits[col] ? `${columnUnits[col]}` : ""}
               </label>
@@ -243,7 +249,7 @@ export default function App() {
               flexWrap: "wrap",
               gap: "30px",
               flex: 1,
-              backgroundColor: "#fff",
+              backgroundColor: "#efefefff",
               padding: "10px",
               borderRadius: "10px",
             }}
