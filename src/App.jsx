@@ -57,7 +57,7 @@ export default function App() {
     accept: { "text/plain": [".out", ".txt", ".xls", ".xlsx"] },
   });
 
-  const downsample = (x, y, maxPoints = 10000) => {
+  const downsample = (x, y, maxPoints = 20000) => {
     const length = x.length;
     if (length <= maxPoints) return { x, y };
     const step = Math.floor(length / maxPoints);
@@ -97,7 +97,7 @@ export default function App() {
             {
               x: xd,
               y: yd,
-              type: "scatterg", // ✅ use "scattergl" for better performance
+              type: "scatter", // ✅ use "scattergl" for better performance
               mode: "lines",
               name: col,
               line: { color: "#000" },
@@ -208,7 +208,7 @@ export default function App() {
               alignItems: "flex-start",
             }}
           >
-            <h3>Select Y-Axes</h3>
+            <h3>Select Y-Axes Parameter</h3>
 
             {availableColumns.map((col) => (
               <label
