@@ -163,7 +163,7 @@ export default function plot() {
 
   return (
     <div className="App" style={{ padding: "20px" }}>
-      <h2>📊 Wind Turbine .out File Viewer (Plotly)</h2>
+      <h2>📊 Time Series Plotting Tool</h2>
 
       {/* File Drop Zone */}
       <div
