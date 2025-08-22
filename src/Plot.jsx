@@ -304,7 +304,6 @@ export default function PlotApp() {
       const relativePath = file.webkitRelativePath || file.name;
       const pathParts = relativePath.split("/");
 
-      // Get folder path including root folder
       const folderPath = pathParts.slice(0, -1).join("/") || "Root";
 
       if (!folderMap[folderPath]) folderMap[folderPath] = [];
@@ -313,7 +312,6 @@ export default function PlotApp() {
 
     setFolderFiles(folderMap);
 
-    // Open all folders by default
     const allFolders = {};
     Object.keys(folderMap).forEach((f) => (allFolders[f] = true));
     setOpenFolders(allFolders);
@@ -502,7 +500,7 @@ export default function PlotApp() {
         )}
       </div>
 
-      {/* Folder content bar (no scrolling) */}
+      {/* Folder structure */}
       <div
         style={{
           marginTop: "30px",
@@ -510,17 +508,10 @@ export default function PlotApp() {
           backgroundColor: "#2c2c2c",
           color: "#fff",
           borderRadius: "10px",
-          // Removed maxHeight and overflowY to remove scroll
           userSelect: "none",
         }}
       >
-        <h3
-          style={{
-            marginBottom: "10px",
-            fontSize: "18px",
-            color: "#fff",
-          }}
-        >
+        <h3 style={{ marginBottom: "10px", fontSize: "18px", color: "#fff" }}>
           📁 Uploaded Folder Structure
         </h3>
 
@@ -537,7 +528,6 @@ export default function PlotApp() {
 
           {Object.entries(folderFiles).map(([relativeFolder, files]) => (
             <div key={relativeFolder}>
-              {/* Folder header with toggle */}
               <div
                 onClick={() => toggleFolder(relativeFolder)}
                 style={{
@@ -570,7 +560,6 @@ export default function PlotApp() {
                 {relativeFolder}
               </div>
 
-              {/* Files list, toggled */}
               {openFolders[relativeFolder] && (
                 <ul
                   style={{
@@ -622,101 +611,100 @@ export default function PlotApp() {
         </div>
       </div>
 
-      {/* Main layout */}
-      <div
-        style={{
-          display: "flex",
-          marginTop: "30px",
-          gap: "40px",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Column Selector */}
-        <div style={{ minWidth: "250px", flexGrow: 0, flexShrink: 0 }}>
-          <h3>Select Y-Axis Columns</h3>
-          {availableColumns.length === 0 && (
-            <p style={{ color: "#666" }}>
-              Upload and select a file to see columns
-            </p>
-          )}
-          {availableColumns.map((col) => (
-            <label
-              key={col}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "9px",
-                textAlign: "left",
-                gap: "8px", // spacing between checkbox and text
-              }}
-            >
-              <input
-                type="checkbox"
-                style={{ transform: "scale(1.4)", cursor: "pointer" }} // makes checkbox bigger
-                checked={selectedColumns.includes(col)}
-                onChange={() =>
-                  setSelectedColumns((prev) =>
-                    prev.includes(col)
-                      ? prev.filter((c) => c !== col)
-                      : [...prev, col]
-                  )
-                }
-              />
-              <span>
-                {col} {columnUnits[col] && `${columnUnits[col]}`}
-              </span>
-            </label>
-          ))}
-        </div>
+      {/* Show plots & selector ONLY if file is loaded */}
+      {activeFileName && (
+        <div
+          style={{
+            display: "flex",
+            marginTop: "30px",
+            gap: "40px",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Column Selector */}
+          <div style={{ minWidth: "250px", flexGrow: 0, flexShrink: 0 }}>
+            <h3>Select Y-Axis Columns</h3>
+            {availableColumns.map((col) => (
+              <label
+                key={col}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "9px",
+                  textAlign: "left",
+                  gap: "8px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  style={{ transform: "scale(1.4)", cursor: "pointer" }}
+                  checked={selectedColumns.includes(col)}
+                  onChange={() =>
+                    setSelectedColumns((prev) =>
+                      prev.includes(col)
+                        ? prev.filter((c) => c !== col)
+                        : [...prev, col]
+                    )
+                  }
+                />
+                <span>
+                  {col} {columnUnits[col] && `${columnUnits[col]}`}
+                </span>
+              </label>
+            ))}
+          </div>
 
-        {/* Plotting Area */}
-        <div style={{ flex: 1, minWidth: 300 }}>
-          {activeFileName && (
+          {/* Plotting Area */}
+          <div style={{ flex: 1, minWidth: 300 }}>
             <div
-              style={{ marginBottom: "20px", fontSize: "18px", color: "white" }}
+              style={{
+                marginBottom: "20px",
+                fontSize: "18px",
+                color: "white",
+              }}
             >
               <strong>📝 Plotting file:</strong> {activeFileName}
             </div>
-          )}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr", // exactly 2 columns
-              gap: "20px", // space between plots
-              backgroundColor: "rgba(220, 220, 220, 1)",
-              padding: "20px",
-              borderRadius: "5px",
-            }}
-          >
-            {plotConfigs.map(({ col, data, layout }) => (
-              <div
-                key={col}
-                style={{
-                  minHeight: "300px",
-                  backgroundColor: "white",
-                  borderRadius: "7px",
-                  padding: "15px",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Plot
-                  data={data}
-                  layout={{
-                    ...layout,
-                    autosize: true,
-                    margin: { l: 40, r: 20, t: 40, b: 40 },
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+                backgroundColor: "rgba(220, 220, 220, 1)",
+                padding: "20px",
+                borderRadius: "5px",
+              }}
+            >
+              {plotConfigs.map(({ col, data, layout }) => (
+                <div
+                  key={col}
+                  style={{
+                    minHeight: "300px",
+                    backgroundColor: "white",
+                    borderRadius: "7px",
+                    padding: "15px",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
                   }}
-                  useResizeHandler
-                  style={{ width: "100%", height: "100%" }}
-                  config={{ responsive: true }}
-                />
-              </div>
-            ))}
+                >
+                  <Plot
+                    data={data}
+                    layout={{
+                      ...layout,
+                      autosize: true,
+                      margin: { l: 40, r: 20, t: 40, b: 40 },
+                    }}
+                    useResizeHandler
+                    style={{ width: "100%", height: "100%" }}
+                    config={{ responsive: true }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
