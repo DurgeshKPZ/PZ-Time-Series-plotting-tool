@@ -1,0 +1,89 @@
+/* Make sure body and html have no margin */
+body, html, #root, .App {
+  margin: 0; padding: 0; height: 100%;
+  background-color: #282c34; /* dark bg */
+  font-family: Arial, sans-serif;
+  color: white;
+  text-align: center;
+}
+
+/* Dropzone style */
+.dropzone {
+  border: 2px dashed #888;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  color: white;
+}
+
+/* File list */
+.file-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+
+.file-list li button {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.file-list li button:hover {
+  background: #666;
+}
+
+/* Controls and charts container */
+.controls-charts {
+  width: 100%;
+  max-width: 1500px;
+  box-sizing: border-box;
+}
+
+/* Charts grid: 2 columns, gap 20px */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* two equal columns */
+  gap: 20px; /* space between graphs */
+  width: 100%;
+  /* max-width: 500vw; prevent overflow */
+  box-sizing: border-box;
+  background-color: rgb(240, 235, 230);
+}
+
+.charts-grid > div {
+  width: 100%; /* full width inside the grid cell */
+  height: 400px; /* fixed height, adjust as needed */
+}
+
+
+/* Axis selector styles */
+.axis-selector p {
+  margin: 0 0 10px 0;
+  font-weight: bold;
+}
+
+.axis-label {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Responsive: stack charts on narrow screens */
+@media (max-width: 650px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* AppTest.css */
+.dropzone {
+  transition: 0.3s ease;
+  border-color: #999;
+}
+
+.drag-active {
+  border-color: #33ccff;
+}
+
