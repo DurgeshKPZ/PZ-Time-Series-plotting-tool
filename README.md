@@ -1,4 +1,4 @@
-# kpz_ploting_tool
+# PZ Time Series ploting tool
 
 plotting tool for .out file
 
