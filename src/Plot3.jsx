@@ -7,18 +7,12 @@ const ALLOWED_EXTENSIONS = [".out"];
 
 // {
 //  built a React time-series plotting tool using react-dropzone for folder uploads and react-plotly.js for plotting.
-
-// Users can upload a folder of .out, .txt, .xls, .xlsx files, which are displayed in a collapsible folder/file tree (left panel).
-
+// Users can upload a folder of .out files, which are displayed in a collapsible folder/file tree (left panel).
 // Only one file can be active at a time, managed by a checkbox-style selector.
-
 // When a file is loaded, the app extracts headers (parameters), their units, and numeric data for plotting.
-
 // The middle panel lists parameters with checkboxes; multiple parameters can be plotted simultaneously.
-
 // The right panel shows interactive Plotly plots, styled consistently, with downsampling for performance.
-
-// 👉 This version also preserves selected parameters when switching files, as long as the new file has those same columns.
+// This version also preserves selected parameters when switching files, as long as the new file has those same columns.
 // }
 
 export default function PlotApp() {
