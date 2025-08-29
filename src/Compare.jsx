@@ -5,14 +5,14 @@ import "./AppTest.css";
 
 const ALLOWED_EXTENSIONS = [".out"];
 
-export default function Plot4() {
-  const [fileDataMap, setFileDataMap] = useState({}); // {filePath: {headers, units, rows}}
+export default function Compare() {
+  const [fileDataMap, setFileDataMap] = useState({});
   const [availableColumns, setAvailableColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [columnUnits, setColumnUnits] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploadedPaths, setUploadedPaths] = useState([]);
-  const [activeFilePaths, setActiveFilePaths] = useState([]); // ✅ multiple active files
+  const [activeFilePaths, setActiveFilePaths] = useState([]);
 
   const isAllowedFile = (fileName) =>
     ALLOWED_EXTENSIONS.some((ext) => fileName.toLowerCase().endsWith(ext));
@@ -21,7 +21,6 @@ export default function Plot4() {
     const validFiles = acceptedFiles.filter((file) => isAllowedFile(file.name));
     if (validFiles.length > 0) {
       let newPaths = [];
-
       if (validFiles[0].webkitRelativePath) {
         const rootPath = validFiles[0].webkitRelativePath.split("/")[0];
         newPaths.push("📂 " + rootPath.replaceAll("/", "\\"));
@@ -31,10 +30,8 @@ export default function Plot4() {
           newPaths.push("📄 " + filePath.replaceAll("/", "\\"));
         });
       }
-
       setUploadedPaths((prev) => [...new Set([...prev, ...newPaths])]);
     }
-
     setUploadedFiles((prev) => {
       const newFiles = [...prev];
       validFiles.forEach((f) => {
@@ -78,7 +75,6 @@ export default function Plot4() {
         [fullPath]: { headers, units: unitMap, rows: data },
       }));
 
-      // update available columns (union across files)
       setAvailableColumns((prev) => {
         const allCols = new Set([
           ...prev,
@@ -87,24 +83,19 @@ export default function Plot4() {
         return [...allCols];
       });
 
-      // merge units
       setColumnUnits((prev) => ({ ...prev, ...unitMap }));
     };
     reader.readAsText(file);
   };
 
-  const downsampleLTTB = (x, y, threshold = 5000) => {
+  const downsampleLTTB = (x, y, threshold = 10000) => {
     const data = x.map((xi, i) => ({ x: xi, y: y[i] }));
     const n = data.length;
     if (threshold >= n || threshold === 0) return { x, y };
 
     const sampled = [];
     let sampledIndex = 0;
-
-    // Bucket size
     const bucketSize = (n - 2) / (threshold - 2);
-
-    // Always include the first point
     sampled[sampledIndex++] = data[0];
 
     for (let i = 0; i < threshold - 2; i++) {
@@ -112,7 +103,6 @@ export default function Plot4() {
       const end = Math.floor((i + 2) * bucketSize) + 1;
       const bucket = data.slice(start, end);
 
-      // Average X, Y for next bucket
       const avgRangeStart = Math.floor((i + 2) * bucketSize) + 1;
       const avgRangeEnd = Math.floor((i + 3) * bucketSize) + 1;
       const avgRange = data.slice(avgRangeStart, avgRangeEnd);
@@ -122,10 +112,7 @@ export default function Plot4() {
       const avgY =
         avgRange.reduce((sum, p) => sum + p.y, 0) / avgRange.length || 0;
 
-      // Point before this bucket
       const pointA = sampled[sampledIndex - 1];
-
-      // Find point in bucket with max triangle area
       let maxArea = -1;
       let nextPoint = null;
       for (const point of bucket) {
@@ -139,22 +126,25 @@ export default function Plot4() {
           nextPoint = point;
         }
       }
-
       sampled[sampledIndex++] = nextPoint || bucket[0];
     }
 
-    // Always include the last point
     sampled[sampledIndex++] = data[n - 1];
-
     return {
       x: sampled.map((p) => p.x),
       y: sampled.map((p) => p.y),
     };
   };
 
+  // ✅ Build configs: one plot per column per threshold
   const plotConfigs = useMemo(() => {
-    return selectedColumns
-      .map((col) => {
+    if (selectedColumns.length === 0) return [];
+
+    const thresholds = [5000, 10000];
+    const configs = [];
+
+    selectedColumns.forEach((col) => {
+      thresholds.forEach((th) => {
         const traces = [];
 
         activeFilePaths.forEach((fp) => {
@@ -173,65 +163,27 @@ export default function Plot4() {
           const y = filtered.map((row) => row[col]);
           if (x.length === 0 || y.length === 0) return;
 
-          const { x: xd, y: yd } = downsampleLTTB(x, y);
+          const { x: xd, y: yd } = downsampleLTTB(x, y, th);
 
           traces.push({
             x: xd,
             y: yd,
             type: "scattergl",
             mode: "lines",
-            name: "", // no parameter , no trace 0
-            // name: `${col} (${fp.split("\\").pop()})`, // col + filename
-            // name: col, // ✅ Only show parameter name in legend
-            hovertemplate: `<b>File:</b> ${fp
-              .split("\\")
-              .pop()}<br><b>X:</b> %{x}<extra></extra>`,
+            name: `${fp.split("\\").pop()} (th=${th})`,
           });
         });
 
-        if (traces.length === 0) return null;
+        configs.push({
+          column: col,
+          threshold: th,
+          traces,
+        });
+      });
+    });
 
-        return {
-          col,
-          data: traces,
-          layout: {
-            title: {
-              text: `${col} Plot`,
-              font: { size: 16, color: "#000" },
-            },
-            hovermode: "closest",
-            showlegend: false, // ✅ disable legend
-            xaxis: {
-              title: { text: "Time (s)", font: { size: 14, color: "#000" } },
-              showline: true,
-              linecolor: "#000",
-              linewidth: 2,
-              mirror: true,
-              gridcolor: "#ccc",
-              zeroline: false,
-            },
-            yaxis: {
-              title: {
-                text: `${col}${columnUnits[col] ? ` ${columnUnits[col]}` : ""}`,
-                font: { size: 14, color: "#000" },
-              },
-              showline: true,
-              linecolor: "#000",
-              linewidth: 2,
-              mirror: true,
-              gridcolor: "#ccc",
-              zeroline: false,
-              automargin: true, // ✅ ADDED: prevents y-axis title from overlapping with ticks
-            },
-            margin: { t: 40, l: 80, r: 20, b: 60 },
-            height: 300,
-            plot_bgcolor: "#fff",
-            paper_bgcolor: "#fff",
-          },
-        };
-      })
-      .filter(Boolean);
-  }, [selectedColumns, activeFilePaths, fileDataMap, columnUnits]);
+    return configs;
+  }, [selectedColumns, activeFilePaths, fileDataMap]);
 
   const {
     getRootProps: getFolderRootProps,
@@ -431,9 +383,9 @@ export default function Plot4() {
         <div
           style={{ textAlign: "left", overflowY: "auto", paddingRight: "8px" }}
         >
-          {plotConfigs.map(({ col, data, layout }) => (
+          {plotConfigs.map(({ column, threshold, traces }) => (
             <div
-              key={col}
+              key={`${column}-${threshold}`}
               style={{
                 marginBottom: "20px",
                 backgroundColor: "white",
@@ -442,43 +394,19 @@ export default function Plot4() {
                 boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
               }}
             >
+              <h4>
+                {column} (Threshold: {threshold})
+              </h4>
               <Plot
-                data={data}
+                data={traces}
                 layout={{
-                  ...layout,
+                  title: `${column} (th=${threshold})`,
                   autosize: true,
                   margin: { l: 40, r: 20, t: 40, b: 40 },
                 }}
                 useResizeHandler
                 style={{ width: "100%", height: "100%" }}
                 config={{ responsive: true }}
-                onHover={(e) => {
-                  const xVal = e.points[0].x;
-                  const plotDiv = e.event.target.closest(".js-plotly-plot");
-
-                  if (plotDiv) {
-                    Plotly.relayout(plotDiv, {
-                      shapes: [
-                        {
-                          type: "line",
-                          x0: xVal,
-                          x1: xVal,
-                          y0: 0,
-                          y1: 1,
-                          xref: "x",
-                          yref: "paper",
-                          line: { color: "red", width: 1, dash: "dot" },
-                        },
-                      ],
-                    });
-                  }
-                }}
-                onUnhover={(e) => {
-                  const plotDiv = e.event.target.closest(".js-plotly-plot");
-                  if (plotDiv) {
-                    Plotly.relayout(plotDiv, { shapes: [] });
-                  }
-                }}
               />
             </div>
           ))}

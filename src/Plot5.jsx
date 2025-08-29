@@ -1,58 +1,101 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import Plot from "react-plotly.js";
 import "./AppTest.css";
 
-const ALLOWED_EXTENSIONS = [".out"];
-
-export default function Plot4() {
-  const [fileDataMap, setFileDataMap] = useState({}); // {filePath: {headers, units, rows}}
+export default function PLot5() {
+  const [fileDataMap, setFileDataMap] = useState({}); // {filename: [ {headers, units, rows, source} ]}
   const [availableColumns, setAvailableColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [columnUnits, setColumnUnits] = useState({});
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState({}); // {filename: [fileVersions]}
   const [uploadedPaths, setUploadedPaths] = useState([]);
-  const [activeFilePaths, setActiveFilePaths] = useState([]); // ✅ multiple active files
+  const [activeFileKeys, setActiveFileKeys] = useState([]); // active files by name
 
-  const isAllowedFile = (fileName) =>
-    ALLOWED_EXTENSIONS.some((ext) => fileName.toLowerCase().endsWith(ext));
+  useEffect(() => {
+    console.log("fileDataMap", fileDataMap);
+  }, [fileDataMap]);
+  const traceColors = [
+    "#1f77b4", // blue
+    "#ff7f0e", // orange
+    "#2ca02c", // green
+    "#d62728", // red
+    "#9467bd", // purple
+    "#8c564b", // brown
+    "#e377c2", // pink
+    "#7f7f7f", // gray
+    "#bcbd22", // olive
+    "#17becf", // cyan
+  ];
+
+  const isAllowedFile = (fileName) => fileName.toLowerCase().endsWith(".out");
 
   const onDrop = (acceptedFiles) => {
     const validFiles = acceptedFiles.filter((file) => isAllowedFile(file.name));
     if (validFiles.length > 0) {
       let newPaths = [];
 
+      // Check if a directory was dropped
       if (validFiles[0].webkitRelativePath) {
+        // Use the root path of the directory
         const rootPath = validFiles[0].webkitRelativePath.split("/")[0];
         newPaths.push("📂 " + rootPath.replaceAll("/", "\\"));
       } else {
+        // Individual files were dropped
         validFiles.forEach((f) => {
           const filePath = f.path || f.name;
           newPaths.push("📄 " + filePath.replaceAll("/", "\\"));
         });
       }
 
-      setUploadedPaths((prev) => [...new Set([...prev, ...newPaths])]);
+      setUploadedPaths((prev) => {
+        // Deduplicate paths
+        const combinedPaths = [...prev, ...newPaths];
+        return [...new Set(combinedPaths)];
+      });
     }
 
+    // group files by base name, but keep multiple versions if from diff paths
     setUploadedFiles((prev) => {
-      const newFiles = [...prev];
+      const newFiles = { ...prev };
       validFiles.forEach((f) => {
-        if (!newFiles.find((nf) => nf.name === f.name && nf.size === f.size)) {
-          newFiles.push(f);
+        const fileKey = f.name; // Use filename as the key
+        if (!newFiles[fileKey]) newFiles[fileKey] = [];
+
+        // Generate a unique path for the file version
+        const newPath = f.webkitRelativePath
+          ? `${f.webkitRelativePath}_${f.lastModified}`
+          : `${f.name}_${f.lastModified}`;
+
+        // Check if this exact file version already exists in the array
+        const alreadyExists = newFiles[fileKey].some((existingFile) => {
+          const existingPath =
+            existingFile.webkitRelativePath ||
+            `${existingFile.name}_${existingFile.lastModified}`;
+          return existingPath === newPath;
+        });
+
+        if (!alreadyExists) {
+          newFiles[fileKey].push(f);
         }
       });
       return newFiles;
     });
   };
 
-  const loadFile = (file, relativePath) => {
+  const loadFile = (file, fileKey) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const lines = e.target.result
         .split(/\r?\n/)
         .filter((line) => line.trim() !== "");
       const headerIndex = lines.findIndex((line) => line.includes("Time"));
+      if (headerIndex === -1) {
+        console.warn(
+          `File ${file.name} does not contain 'Time' header. Skipping.`
+        );
+        return;
+      }
       const unitIndex = headerIndex + 1;
       const headers = lines[headerIndex].trim().split(/\s+/);
       const units = lines[unitIndex]?.trim().split(/\s+/) || [];
@@ -72,13 +115,31 @@ export default function Plot4() {
         return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
       });
 
-      const fullPath = relativePath.replaceAll("/", "\\");
-      setFileDataMap((prev) => ({
-        ...prev,
-        [fullPath]: { headers, units: unitMap, rows: data },
-      }));
+      setFileDataMap((prev) => {
+        const existing = prev[fileKey] || [];
+        const newSource = file.webkitRelativePath
+          ? `${file.webkitRelativePath}_${file.lastModified}`
+          : `${file.name}_${file.lastModified}`;
 
-      // update available columns (union across files)
+        // Check if this exact source already exists
+        if (existing.some((v) => v.source === newSource)) {
+          return prev; // already loaded
+        }
+
+        return {
+          ...prev,
+          [fileKey]: [
+            ...existing,
+            {
+              headers,
+              units: unitMap,
+              rows: data,
+              source: newSource,
+            },
+          ],
+        };
+      });
+
       setAvailableColumns((prev) => {
         const allCols = new Set([
           ...prev,
@@ -87,12 +148,12 @@ export default function Plot4() {
         return [...allCols];
       });
 
-      // merge units
       setColumnUnits((prev) => ({ ...prev, ...unitMap }));
     };
     reader.readAsText(file);
   };
 
+  // Downsampling logic remains the same
   const downsampleLTTB = (x, y, threshold = 5000) => {
     const data = x.map((xi, i) => ({ x: xi, y: y[i] }));
     const n = data.length;
@@ -100,11 +161,8 @@ export default function Plot4() {
 
     const sampled = [];
     let sampledIndex = 0;
-
-    // Bucket size
     const bucketSize = (n - 2) / (threshold - 2);
 
-    // Always include the first point
     sampled[sampledIndex++] = data[0];
 
     for (let i = 0; i < threshold - 2; i++) {
@@ -112,7 +170,6 @@ export default function Plot4() {
       const end = Math.floor((i + 2) * bucketSize) + 1;
       const bucket = data.slice(start, end);
 
-      // Average X, Y for next bucket
       const avgRangeStart = Math.floor((i + 2) * bucketSize) + 1;
       const avgRangeEnd = Math.floor((i + 3) * bucketSize) + 1;
       const avgRange = data.slice(avgRangeStart, avgRangeEnd);
@@ -122,10 +179,8 @@ export default function Plot4() {
       const avgY =
         avgRange.reduce((sum, p) => sum + p.y, 0) / avgRange.length || 0;
 
-      // Point before this bucket
       const pointA = sampled[sampledIndex - 1];
 
-      // Find point in bucket with max triangle area
       let maxArea = -1;
       let nextPoint = null;
       for (const point of bucket) {
@@ -139,11 +194,8 @@ export default function Plot4() {
           nextPoint = point;
         }
       }
-
       sampled[sampledIndex++] = nextPoint || bucket[0];
     }
-
-    // Always include the last point
     sampled[sampledIndex++] = data[n - 1];
 
     return {
@@ -151,41 +203,69 @@ export default function Plot4() {
       y: sampled.map((p) => p.y),
     };
   };
+  // A simple hash function to generate a consistent color
+  const hashCode = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return hash;
+  };
 
   const plotConfigs = useMemo(() => {
     return selectedColumns
       .map((col) => {
         const traces = [];
+        activeFileKeys.forEach((key) => {
+          const fileVersions = fileDataMap[key];
+          if (!fileVersions) return;
 
-        activeFilePaths.forEach((fp) => {
-          const fileInfo = fileDataMap[fp];
-          if (!fileInfo) return;
+          fileVersions.forEach((fileInfo) => {
+            const filtered = fileInfo.rows.filter(
+              (row) =>
+                typeof row["Time"] === "number" &&
+                !isNaN(row["Time"]) &&
+                typeof row[col] === "number" &&
+                !isNaN(row[col])
+            );
 
-          const filtered = fileInfo.rows.filter(
-            (row) =>
-              typeof row["Time"] === "number" &&
-              !isNaN(row["Time"]) &&
-              typeof row[col] === "number" &&
-              !isNaN(row[col])
-          );
+            const x = filtered.map((row) => row["Time"]);
+            const y = filtered.map((row) => row[col]);
+            if (x.length === 0 || y.length === 0) return;
 
-          const x = filtered.map((row) => row["Time"]);
-          const y = filtered.map((row) => row[col]);
-          if (x.length === 0 || y.length === 0) return;
+            const { x: xd, y: yd } = downsampleLTTB(x, y);
 
-          const { x: xd, y: yd } = downsampleLTTB(x, y);
+            // Get the full relative path
+            const fullPath = fileInfo.source.replaceAll("/", "\\");
 
-          traces.push({
-            x: xd,
-            y: yd,
-            type: "scattergl",
-            mode: "lines",
-            name: "", // no parameter , no trace 0
-            // name: `${col} (${fp.split("\\").pop()})`, // col + filename
-            // name: col, // ✅ Only show parameter name in legend
-            hovertemplate: `<b>File:</b> ${fp
-              .split("\\")
-              .pop()}<br><b>X:</b> %{x}<extra></extra>`,
+            // Extract a user-friendly name for the legend
+            const pathSegments = fullPath.split("\\");
+            const legendName =
+              pathSegments.length > 2
+                ? `${pathSegments[pathSegments.length - 2]}...\\${
+                    pathSegments[pathSegments.length - 1]
+                  }`
+                : fullPath;
+
+            traces.push({
+              x: xd,
+              y: yd,
+              type: "scattergl",
+              mode: "lines",
+              // Set a unique name for each trace to ensure a separate legend entry
+              name: legendName,
+              line: {
+                color:
+                  traceColors[
+                    Math.abs(hashCode(fullPath)) % traceColors.length
+                  ],
+                width: 2,
+              },
+
+              //   line: { color: traceColors[idx % traceColors.length], width: 2 },
+              // Include full path in the hover template for detailed info
+              hovertemplate: `<b>File:</b> ${fullPath}<br><b>X:</b> %{x}<br><b>Y:</b> %{y}<extra></extra>`,
+            });
           });
         });
 
@@ -200,7 +280,7 @@ export default function Plot4() {
               font: { size: 16, color: "#000" },
             },
             hovermode: "closest",
-            showlegend: false, // ✅ disable legend
+            showlegend: true,
             xaxis: {
               title: { text: "Time (s)", font: { size: 14, color: "#000" } },
               showline: true,
@@ -221,7 +301,7 @@ export default function Plot4() {
               mirror: true,
               gridcolor: "#ccc",
               zeroline: false,
-              automargin: true, // ✅ ADDED: prevents y-axis title from overlapping with ticks
+              automargin: true,
             },
             margin: { t: 40, l: 80, r: 20, b: 60 },
             height: 300,
@@ -231,7 +311,7 @@ export default function Plot4() {
         };
       })
       .filter(Boolean);
-  }, [selectedColumns, activeFilePaths, fileDataMap, columnUnits]);
+  }, [selectedColumns, activeFileKeys, fileDataMap, columnUnits]);
 
   const {
     getRootProps: getFolderRootProps,
@@ -241,8 +321,8 @@ export default function Plot4() {
     onDrop,
     noClick: true,
     multiple: true,
-    webkitdirectory: true,
-    directory: true,
+    webkitdirectory: "true", // Note: This attribute is a string
+    directory: "true", // Note: This attribute is a string
   });
 
   const {
@@ -326,7 +406,7 @@ export default function Plot4() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "350px 300px 1fr",
+          gridTemplateColumns: "320px 250px 1fr",
           gap: "15px",
           padding: "15px",
           flexGrow: 1,
@@ -343,43 +423,47 @@ export default function Plot4() {
             overflowY: "auto",
           }}
         >
-          <h3>📁 Uploaded Files</h3>
-          {uploadedFiles.length === 0 && (
+          <h4 style={{ textAlign: "left" }}> Select Files</h4>
+          {Object.keys(uploadedFiles).length === 0 && (
             <p style={{ color: "#bbb" }}>No file uploaded yet.</p>
           )}
           <ul style={{ listStyle: "none", paddingLeft: "0", margin: 0 }}>
-            {uploadedFiles.map((file) => {
-              const relPath = file.webkitRelativePath || file.name;
-              const fullPath = relPath.replaceAll("/", "\\");
-              return (
-                <li key={relPath} style={{ marginBottom: "6px" }}>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
+            {Object.keys(uploadedFiles).map((fileKey) => (
+              <li key={fileKey} style={{ marginBottom: "6px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={activeFileKeys.includes(fileKey)}
+                    onChange={() => {
+                      if (activeFileKeys.includes(fileKey)) {
+                        setActiveFileKeys((prev) =>
+                          prev.filter((k) => k !== fileKey)
+                        );
+                      } else {
+                        // Load all versions of the file when the checkbox is checked
+                        uploadedFiles[fileKey].forEach((f) =>
+                          loadFile(f, fileKey)
+                        );
+                        setActiveFileKeys((prev) => [...prev, fileKey]);
+                      }
                     }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={activeFilePaths.includes(fullPath)}
-                      onChange={() => {
-                        if (activeFilePaths.includes(fullPath)) {
-                          setActiveFilePaths((prev) =>
-                            prev.filter((p) => p !== fullPath)
-                          );
-                        } else {
-                          loadFile(file, relPath);
-                          setActiveFilePaths((prev) => [...prev, fullPath]);
-                        }
-                      }}
-                    />
-                    <span style={{ fontSize: "14px" }}>{file.name}</span>
-                  </label>
-                </li>
-              );
-            })}
+                  />
+                  <span style={{ fontSize: "14px" }}>
+                    {fileKey}
+                    {/* Display the count of versions if > 1 */}
+                    {uploadedFiles[fileKey].length > 1 &&
+                      ` (${uploadedFiles[fileKey].length} versions)`}
+                  </span>
+                </label>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -394,7 +478,7 @@ export default function Plot4() {
             textAlign: "left",
           }}
         >
-          {activeFilePaths.length > 0 ? (
+          {activeFileKeys.length > 0 ? (
             <>
               <h4>Select Parameters</h4>
               {availableColumns.map((col) => (
@@ -452,33 +536,6 @@ export default function Plot4() {
                 useResizeHandler
                 style={{ width: "100%", height: "100%" }}
                 config={{ responsive: true }}
-                onHover={(e) => {
-                  const xVal = e.points[0].x;
-                  const plotDiv = e.event.target.closest(".js-plotly-plot");
-
-                  if (plotDiv) {
-                    Plotly.relayout(plotDiv, {
-                      shapes: [
-                        {
-                          type: "line",
-                          x0: xVal,
-                          x1: xVal,
-                          y0: 0,
-                          y1: 1,
-                          xref: "x",
-                          yref: "paper",
-                          line: { color: "red", width: 1, dash: "dot" },
-                        },
-                      ],
-                    });
-                  }
-                }}
-                onUnhover={(e) => {
-                  const plotDiv = e.event.target.closest(".js-plotly-plot");
-                  if (plotDiv) {
-                    Plotly.relayout(plotDiv, { shapes: [] });
-                  }
-                }}
               />
             </div>
           ))}
