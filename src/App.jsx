@@ -5,7 +5,7 @@ import Plot3 from "./Plot3";
 import Plot4 from "./Plot4";
 import Compare from "./Compare";
 import PLot5 from "./Plot5";
-import PLot6 from "./Plot6";
+import Final_app from "./Final_app";
 
 export default function App() {
   return (
@@ -15,7 +15,8 @@ export default function App() {
       {/* <Plot4 /> */}
       {/* <Plot5 /> */}
       {/* <Compare /> */}
-      <PLot6 />
+      {/* <PLot6 /> */}
+      <Final_app />
     </div>
   );
 }
