@@ -7,56 +7,117 @@ import React, {
 } from "react";
 import { useDropzone } from "react-dropzone";
 import Plot from "react-plotly.js";
-// The 'plotly.js-dist' import is not needed and was causing a compilation error.
+
+// Memoized Plotly component
+const MemoizedPlot = React.memo(
+  ({ col, data, layout, onInitialized, onUpdate, onRelayout, plotRefs }) => {
+    return (
+      <div
+        key={col}
+        style={{
+          marginBottom: "20px",
+          backgroundColor: "white",
+          borderRadius: "7px",
+          padding: "15px",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+        }}
+      >
+        <Plot
+          data={data}
+          layout={{
+            ...layout,
+            autosize: true,
+            margin: { l: 40, r: 20, t: 40, b: 40 },
+          }}
+          useResizeHandler
+          style={{ width: "100%", height: "100%" }}
+          config={{
+            responsive: true,
+            scrollZoom: true,
+            doubleClick: "reset",
+          }}
+          onInitialized={(figure, graphDiv) => {
+            plotRefs.current[col] = graphDiv;
+            onInitialized(figure, graphDiv);
+          }}
+          onUpdate={(figure, graphDiv) => {
+            plotRefs.current[col] = graphDiv;
+            onUpdate(figure, graphDiv);
+          }}
+          onRelayout={(eventData) => {
+            onRelayout(eventData, col);
+          }}
+        />
+      </div>
+    );
+  }
+);
 
 // Main React component for the plotting tool
-export default function Final_app() {
-  // State for managing file data and uploaded files
-  const [fileDataMap, setFileDataMap] = useState({}); // {filename: [ {headers, units, rows, source} ]}
+export default function PLot6() {
+  const [fileDataMap, setFileDataMap] = useState({});
   const [availableColumns, setAvailableColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [columnUnits, setColumnUnits] = useState({});
-  const [uploadedFiles, setUploadedFiles] = useState({}); // {filename: [fileVersions]}
+  const [uploadedFiles, setUploadedFiles] = useState({});
   const [uploadedPaths, setUploadedPaths] = useState([]);
-  const [activeFileKeys, setActiveFileKeys] = useState([]); // active files by name
+  const [activeFileKeys, setActiveFileKeys] = useState([]);
 
-  // ✅ Use a ref to store references to each Plotly graphDiv.
-  // This allows us to programmatically call `Plotly.relayout` on them.
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
+  const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false);
+
   const plotRefs = useRef({});
-
-  // ✅ Use a ref as a flag to prevent infinite loops.
-  // When we programmatically call `Plotly.relayout`, it also triggers the onRelayout event,
-  // so this ref helps us distinguish between user interaction and our own code updates.
   const syncingRef = useRef(false);
 
+  // New: A ref to the main plot container.
+  const plotContainerRef = useRef(null);
+
+  // NEW: useEffect to handle plot resizing using ResizeObserver.
   useEffect(() => {
-    console.log("fileDataMap", fileDataMap);
-  }, [fileDataMap]);
+    if (!plotContainerRef.current) return;
+
+    // The observer callback function
+    const handleResize = () => {
+      Object.values(plotRefs.current).forEach((gd) => {
+        if (gd && window.Plotly && window.Plotly.Plots) {
+          window.Plotly.Plots.resize(gd);
+        }
+      });
+    };
+
+    const observer = new ResizeObserver(handleResize);
+
+    // Observe the main container where all the plots are rendered.
+    // This is more efficient than observing each individual plot.
+    observer.observe(plotContainerRef.current);
+
+    // Cleanup function to disconnect the observer
+    return () => {
+      observer.disconnect();
+    };
+  }, [plotContainerRef, isLeftCollapsed, isMiddleCollapsed]);
 
   // Colors for plot traces
   const traceColors = [
-    // 🔹 10 Dark / Bold Colors
-    "#000000", // black
-    "#1f77b4", // dark blue
-    "#ff7f0e", // dark orange
-    "#2ca02c", // dark green
-    "#d62728", // dark red
-    "#9467bd", // dark purple
-    "#8c564b", // dark brown
-    "#bcbd22", // dark olive
-    "#e377c2", // dark pink/magenta
-
-    // 🔹 10 Light / Faint Colors
-    "#7f7f7f", // medium gray
-    "#aec7e8", // light blue
-    "#fcb46bff", // light orange
-    "#98df8a", // light green
-    "#f9a5a4ff", // light red
-    "#c5b0d5", // light purple
-    "#c49c94", // light brown
-    "#9edae5", // light cyan
-    "#dbdb8d", // light olive
-    "#ff9bc6ff", // light pink
+    "#000000",
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#bcbd22",
+    "#e377c2",
+    "#7f7f7f",
+    "#aec7e8",
+    "#fcb46bff",
+    "#98df8a",
+    "#f9a5a4ff",
+    "#c5b0d5",
+    "#c49c94",
+    "#9edae5",
+    "#dbdb8d",
+    "#ff9bc6ff",
   ];
 
   // File validation function
@@ -108,7 +169,7 @@ export default function Final_app() {
     });
   };
 
-  // Function to load and parse a file's data
+  // Function to load, parse, and down-sample a file's data.
   const loadFile = (file, fileKey) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -141,6 +202,21 @@ export default function Final_app() {
         return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
       });
 
+      const downsampledData = {};
+      const timeData = data
+        .map((row) => Number(row["Time"]))
+        .filter((t) => !isNaN(t));
+
+      headers.forEach((col) => {
+        if (col === "Time") return;
+        const yData = data
+          .map((row) => Number(row[col]))
+          .filter((v) => !isNaN(v));
+        if (timeData.length > 0 && yData.length > 0) {
+          downsampledData[col] = downsampleLTTB(timeData, yData);
+        }
+      });
+
       setFileDataMap((prev) => {
         const existing = prev[fileKey] || [];
         const newSource = file.webkitRelativePath
@@ -158,7 +234,7 @@ export default function Final_app() {
             {
               headers,
               units: unitMap,
-              rows: data,
+              downsampledData,
               source: newSource,
             },
           ],
@@ -238,7 +314,7 @@ export default function Final_app() {
     return hash;
   };
 
-  // Memoized plot configurations to avoid unnecessary re-computation
+  // Memoized plot configurations now use downsampled data.
   const plotConfigs = useMemo(() => {
     return selectedColumns
       .map((col) => {
@@ -248,17 +324,8 @@ export default function Final_app() {
           if (!fileVersions) return;
 
           fileVersions.forEach((fileInfo) => {
-            const filtered = fileInfo.rows.filter((row) => {
-              const t = Number(row["Time"]);
-              const v = Number(row[col]);
-              return !isNaN(t) && !isNaN(v);
-            });
-
-            const x = filtered.map((row) => Number(row["Time"]));
-            const y = filtered.map((row) => Number(row[col]));
-            if (x.length === 0 || y.length === 0) return;
-
-            const { x: xd, y: yd } = downsampleLTTB(x, y);
+            const downsampled = fileInfo.downsampledData[col];
+            if (!downsampled || downsampled.x.length === 0) return;
 
             const fullPath = fileInfo.source.replaceAll("/", "\\");
 
@@ -266,8 +333,8 @@ export default function Final_app() {
             legendName = legendName.replace(/_\d+$/, "");
 
             traces.push({
-              x: xd,
-              y: yd,
+              x: downsampled.x,
+              y: downsampled.y,
               type: "scatter",
               mode: "lines",
               name: legendName,
@@ -295,7 +362,7 @@ export default function Final_app() {
             },
             hovermode: "closest",
             showlegend: true,
-            uirevision: "x-sync", // ✅ This ensures zoom/pan state is preserved
+            uirevision: "x-sync",
             dragmode: "zoom",
             xaxis: {
               title: { text: "Time (s)", font: { size: 14, color: "#000" } },
@@ -363,8 +430,7 @@ export default function Final_app() {
     multiple: true,
   });
 
-  // ✅ Use a debounce function to limit how often a function is called.
-  // This prevents the app from freezing during rapid user interactions.
+  // Use a debounce function to limit how often a function is called.
   const debounce = (func, delay) => {
     let timeout;
     return (...args) => {
@@ -373,59 +439,45 @@ export default function Final_app() {
     };
   };
 
-  // ✅ Wrap the synchronization logic in a `useCallback` hook to make it stable.
-  // We use `useCallback` here to ensure that the debounced function is only
-  // created once, preventing re-renders from creating new debounce timers.
+  // Wrap the synchronization logic in a `useCallback` hook to make it stable.
   const handleRelayoutDebounced = useCallback(
     debounce((eventData, sourceCol) => {
-      // Prevent an infinite loop. The flag is set when we are programmatically updating
-      // the other plots, so we don't re-trigger this event handler.
       if (syncingRef.current) return;
 
       let newRange = null;
-
-      // Extract the new x-axis range from the event data
       if (
         eventData["xaxis.range[0]"] !== undefined &&
         eventData["xaxis.range[1]"] !== undefined
       ) {
         newRange = [eventData["xaxis.range[0]"], eventData["xaxis.range[1]"]];
       } else if (eventData["xaxis.autorange"]) {
-        // This case handles double-click to autoscale
         newRange = "autorange";
       }
 
-      // If no valid range is found, do nothing
       if (!newRange) return;
 
       const sourceGD = plotRefs.current[sourceCol];
 
-      // Set the flag to true to start the syncing process
       syncingRef.current = true;
       try {
-        // Iterate through all the other plots and apply the new x-axis range
         Object.entries(plotRefs.current).forEach(([key, gd]) => {
-          // Skip the plot that triggered the initial event
           if (!gd || gd === sourceGD) return;
 
           if (newRange === "autorange") {
-            // Apply autorange if the source plot was reset
             window.Plotly.relayout(gd, { "xaxis.autorange": true }).catch(
               (err) => console.error("Relayout error:", err)
             );
           } else {
-            // Apply the new numeric range
             window.Plotly.relayout(gd, {
               "xaxis.range": newRange,
-              "xaxis.autorange": false, // ✅ force disable autorange to use the new range
+              "xaxis.autorange": false,
             }).catch((err) => console.error("Relayout error:", err));
           }
         });
       } finally {
-        // Always reset the flag to false, allowing future user interactions to trigger syncing
         syncingRef.current = false;
       }
-    }, 200), // 200ms debounce delay
+    }, 200),
     [plotRefs, syncingRef]
   );
 
@@ -502,11 +554,14 @@ export default function Final_app() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "300px 250px 1fr",
+          gridTemplateColumns: `${isLeftCollapsed ? "60px" : "300px"} ${
+            isMiddleCollapsed ? "60px" : "250px"
+          } 1fr`,
           gap: "15px",
           padding: "15px",
           flexGrow: 1,
           overflow: "hidden",
+          // transition: "grid-template-columns 0.3s ease",  // animation of the left and middle panel.....
         }}
       >
         {/* LEFT: File List */}
@@ -515,50 +570,93 @@ export default function Final_app() {
             backgroundColor: "#000",
             color: "#fff",
             borderRadius: "8px",
-            padding: "12px",
+            padding: isLeftCollapsed ? "12px 0" : "12px",
             overflowY: "auto",
           }}
         >
-          <h4 style={{ textAlign: "left" }}> Select Files</h4>
-          {Object.keys(uploadedFiles).length === 0 && (
-            <p style={{ color: "#bbb" }}>No file uploaded yet.</p>
+          <h4
+            style={{
+              textAlign: "left",
+              display: "flex",
+              justifyContent: isLeftCollapsed ? "center" : "space-between",
+              alignItems: "center",
+              flexDirection: isLeftCollapsed ? "column" : "row",
+            }}
+          >
+            {!isLeftCollapsed && <span>Select Files</span>}
+            {isLeftCollapsed && (
+              <span
+                style={{
+                  writingMode: "vertical-rl",
+                  textOrientation: "mixed",
+                  transform: "rotate(180deg)",
+                  fontSize: "14px",
+                  marginBottom: "8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Files
+              </span>
+            )}
+            <button
+              onClick={() => setIsLeftCollapsed(!isLeftCollapsed)}
+              style={{
+                backgroundColor: isLeftCollapsed ? "#333" : "transparent",
+                color: "white",
+                border: "1px solid white",
+                borderRadius: "4px",
+                padding: "2px 8px",
+                cursor: "pointer",
+                fontSize: "12px",
+                alignSelf: isLeftCollapsed ? "center" : "auto",
+              }}
+            >
+              {isLeftCollapsed ? ">>" : "<<"}
+            </button>
+          </h4>
+          {!isLeftCollapsed && (
+            <>
+              {Object.keys(uploadedFiles).length === 0 && (
+                <p style={{ color: "#bbb" }}>No file uploaded yet.</p>
+              )}
+              <ul style={{ listStyle: "none", paddingLeft: "0", margin: 0 }}>
+                {Object.keys(uploadedFiles).map((fileKey) => (
+                  <li key={fileKey} style={{ marginBottom: "6px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={activeFileKeys.includes(fileKey)}
+                        onChange={() => {
+                          if (activeFileKeys.includes(fileKey)) {
+                            setActiveFileKeys((prev) =>
+                              prev.filter((k) => k !== fileKey)
+                            );
+                          } else {
+                            uploadedFiles[fileKey].forEach((f) =>
+                              loadFile(f, fileKey)
+                            );
+                            setActiveFileKeys((prev) => [...prev, fileKey]);
+                          }
+                        }}
+                      />
+                      <span style={{ fontSize: "14px" }}>
+                        {fileKey}
+                        {uploadedFiles[fileKey].length > 1 &&
+                          ` (${uploadedFiles[fileKey].length - 1})`}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
-          <ul style={{ listStyle: "none", paddingLeft: "0", margin: 0 }}>
-            {Object.keys(uploadedFiles).map((fileKey) => (
-              <li key={fileKey} style={{ marginBottom: "6px" }}>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={activeFileKeys.includes(fileKey)}
-                    onChange={() => {
-                      if (activeFileKeys.includes(fileKey)) {
-                        setActiveFileKeys((prev) =>
-                          prev.filter((k) => k !== fileKey)
-                        );
-                      } else {
-                        uploadedFiles[fileKey].forEach((f) =>
-                          loadFile(f, fileKey)
-                        );
-                        setActiveFileKeys((prev) => [...prev, fileKey]);
-                      }
-                    }}
-                  />
-                  <span style={{ fontSize: "14px" }}>
-                    {fileKey}
-                    {uploadedFiles[fileKey].length > 1 &&
-                      ` (${uploadedFiles[fileKey].length - 1})`}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* MIDDLE: Column Selector */}
@@ -567,88 +665,105 @@ export default function Final_app() {
             backgroundColor: "#000",
             color: "#fff",
             borderRadius: "8px",
-            padding: "12px",
+            padding: isMiddleCollapsed ? "12px 0" : "12px",
             overflowY: "auto",
             textAlign: "left",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          {activeFileKeys.length > 0 ? (
+          <h4
+            style={{
+              textAlign: "left",
+              display: "flex",
+              justifyContent: isMiddleCollapsed ? "center" : "space-between",
+              alignItems: "center",
+              flexDirection: isMiddleCollapsed ? "column" : "row",
+            }}
+          >
+            {!isMiddleCollapsed && <span>Select Parameters</span>}
+            {isMiddleCollapsed && (
+              <span
+                style={{
+                  writingMode: "vertical-rl",
+                  textOrientation: "mixed",
+                  transform: "rotate(180deg)",
+                  fontSize: "14px",
+                  marginBottom: "8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Params
+              </span>
+            )}
+            <button
+              onClick={() => setIsMiddleCollapsed(!isMiddleCollapsed)}
+              style={{
+                backgroundColor: isMiddleCollapsed ? "#333" : "transparent",
+                color: "white",
+                border: "1px solid white",
+                borderRadius: "4px",
+                padding: "2px 8px",
+                cursor: "pointer",
+                fontSize: "12px",
+                alignSelf: isMiddleCollapsed ? "center" : "auto",
+              }}
+            >
+              {isMiddleCollapsed ? ">>" : "<<"}
+            </button>
+          </h4>
+          {!isMiddleCollapsed && (
             <>
-              <h4>Select Parameters</h4>
-              {availableColumns.map((col) => (
-                <label
-                  key={col}
-                  style={{
-                    display: "flex",
-                    marginBottom: "8px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedColumns.includes(col)}
-                    onChange={() =>
-                      setSelectedColumns((prev) =>
-                        prev.includes(col)
-                          ? prev.filter((c) => c !== col)
-                          : [...prev, col]
-                      )
-                    }
-                    style={{ marginRight: "6px" }}
-                  />
-                  {col} {columnUnits[col] && `${columnUnits[col]}`}
-                </label>
-              ))}
+              {activeFileKeys.length > 0 ? (
+                <>
+                  {availableColumns.map((col) => (
+                    <label
+                      key={col}
+                      style={{
+                        display: "flex",
+                        marginBottom: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedColumns.includes(col)}
+                        onChange={() =>
+                          setSelectedColumns((prev) =>
+                            prev.includes(col)
+                              ? prev.filter((c) => c !== col)
+                              : [...prev, col]
+                          )
+                        }
+                        style={{ marginRight: "6px" }}
+                      />
+                      {col} {columnUnits[col] && `${columnUnits[col]}`}
+                    </label>
+                  ))}
+                </>
+              ) : (
+                <p style={{ color: "#666" }}>Select a file to continue...</p>
+              )}
             </>
-          ) : (
-            <p style={{ color: "#666" }}>Select a file to continue...</p>
           )}
         </div>
 
         {/* RIGHT: Plots */}
         <div
+          ref={plotContainerRef}
           style={{ textAlign: "left", overflowY: "auto", paddingRight: "8px" }}
         >
           {plotConfigs.map(({ col, data, layout }, idx) => (
-            <div
+            <MemoizedPlot
               key={`${col}-${idx}`}
-              style={{
-                marginBottom: "20px",
-                backgroundColor: "white",
-                borderRadius: "7px",
-                padding: "15px",
-                boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-              }}
-            >
-              <Plot
-                data={data}
-                layout={{
-                  ...layout,
-                  autosize: true,
-                  margin: { l: 40, r: 20, t: 40, b: 40 },
-                }}
-                useResizeHandler
-                style={{ width: "100%", height: "100%" }}
-                config={{
-                  responsive: true,
-                  scrollZoom: true,
-                  doubleClick: "reset",
-                }}
-                // ✅ Save reference to each graphDiv for syncing
-                onInitialized={(figure, graphDiv) => {
-                  plotRefs.current[col] = graphDiv; // use column name as key
-                }}
-                onUpdate={(figure, graphDiv) => {
-                  plotRefs.current[col] = graphDiv;
-                }}
-                // ✅ Call the new debounced handler instead of the raw logic
-                onRelayout={(eventData) => {
-                  handleRelayoutDebounced(eventData, col);
-                }}
-              />
-            </div>
+              col={col}
+              data={data}
+              layout={layout}
+              onInitialized={() => {}}
+              onUpdate={() => {}}
+              onRelayout={handleRelayoutDebounced}
+              plotRefs={plotRefs}
+            />
           ))}
         </div>
       </div>

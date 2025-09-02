@@ -14,8 +14,8 @@ export default function App() {
       {/* <Plot /> */}
       {/* <Plot4 /> */}
       {/* <Plot5 /> */}
-      {/* <Compare /> */}
       {/* <PLot6 /> */}
+      {/* <Compare /> */}
       <Final_app />
     </div>
   );
