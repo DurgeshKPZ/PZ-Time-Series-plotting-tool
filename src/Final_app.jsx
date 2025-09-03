@@ -101,19 +101,19 @@ export default function PLot6() {
   // Colors for plot traces
   const traceColors = [
     "#000000",
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
+    "#1f2eb4ff",
+    "#e808e4ff",
+    "#87f887ff",
     "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#bcbd22",
-    "#e377c2",
+    "#7e0aebff",
+    "#6f281aff",
+    "#f4f407ff",
+    "#f1a0e1ff",
     "#7f7f7f",
-    "#aec7e8",
-    "#fcb46bff",
+    "#8099e9ff",
+    "#f88604ff",
     "#98df8a",
-    "#f9a5a4ff",
+    "#f79292ff",
     "#c5b0d5",
     "#c49c94",
     "#9edae5",
@@ -651,7 +651,7 @@ export default function PLot6() {
                       <span style={{ fontSize: "14px" }}>
                         {fileKey}
                         {uploadedFiles[fileKey].length > 1 &&
-                          ` (${uploadedFiles[fileKey].length - 1})`}
+                          ` (${uploadedFiles[fileKey].length})`}
                       </span>
                     </label>
                   </li>
