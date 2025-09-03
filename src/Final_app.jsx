@@ -33,8 +33,9 @@ const MemoizedPlot = React.memo(
           style={{ width: "100%", height: "100%" }}
           config={{
             responsive: true,
-            scrollZoom: true,
+            // scrollZoom: true,
             doubleClick: "reset",
+            modeBarButtonsToRemove: ["zoomIn", "zoomOut"],
           }}
           onInitialized={(figure, graphDiv) => {
             plotRefs.current[col] = graphDiv;
@@ -445,16 +446,17 @@ export default function PLot6() {
       if (syncingRef.current) return;
 
       let newRange = null;
+      // let isAutorange = false;
       if (
         eventData["xaxis.range[0]"] !== undefined &&
         eventData["xaxis.range[1]"] !== undefined
       ) {
         newRange = [eventData["xaxis.range[0]"], eventData["xaxis.range[1]"]];
-      } else if (eventData["xaxis.autorange"]) {
-        newRange = "autorange";
+      } else if (eventData["xaxis.autorange"] !== undefined) {
+        isAutorange = true;
       }
 
-      if (!newRange) return;
+      if (!newRange && !isAutorange) return;
 
       const sourceGD = plotRefs.current[sourceCol];
 
