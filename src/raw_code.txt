@@ -1,0 +1,209 @@
+
+// import { useState, useMemo } from "react";
+// import { useDropzone } from "react-dropzone";
+// import Plot from "react-plotly.js";
+// import "./AppTest.css";
+
+// const ALLOWED_EXTENSIONS = [".out"];
+
+// export default function PlotApp() {
+//   const [folderFilesA, setFolderFilesA] = useState({});
+//   const [folderFilesB, setFolderFilesB] = useState({});
+//   const [activeFileA, setActiveFileA] = useState(null);
+//   const [activeFileB, setActiveFileB] = useState(null);
+
+//   const [dataRowsA, setDataRowsA] = useState([]);
+//   const [dataRowsB, setDataRowsB] = useState([]);
+
+//   const [availableColumns, setAvailableColumns] = useState([]);
+//   const [selectedColumns, setSelectedColumns] = useState([]);
+//   const [columnUnits, setColumnUnits] = useState({});
+
+//   const isAllowedFile = (fileName) => fileName.toLowerCase().endsWith(".out");
+
+//   // Drop handler (works for Folder A or B)
+//   const onDrop = (acceptedFiles, setFolderFiles) => {
+//     const folderMap = {};
+//     for (const file of acceptedFiles) {
+//       if (!isAllowedFile(file.name)) continue;
+//       const relativePath = file.webkitRelativePath || file.name;
+//       const pathParts = relativePath.split("/");
+//       if (pathParts.length > 2) continue; // ignore nested subfolders
+//       const folderPath = pathParts[0] || "Root";
+//       if (!folderMap[folderPath]) folderMap[folderPath] = [];
+//       folderMap[folderPath].push(file);
+//     }
+//     setFolderFiles(folderMap);
+//   };
+
+//   // Load file content (works for A or B)
+//   const loadFile = (file, setDataRows, setActiveFile) => {
+//     const reader = new FileReader();
+//     reader.onload = (e) => {
+//       const lines = e.target.result
+//         .split(/\r?\n/)
+//         .filter((line) => line.trim() !== "");
+//       const headerIndex = lines.findIndex((line) => line.includes("Time"));
+//       const headers = lines[headerIndex].trim().split(/\s+/);
+//       const unitIndex = headerIndex + 1;
+//       const units = lines[unitIndex]?.trim().split(/\s+/) || [];
+
+//       const unitMap = {};
+//       headers.forEach((h, i) => (unitMap[h] = units[i] || ""));
+//       setColumnUnits(unitMap);
+//       setAvailableColumns(headers.filter((h) => h !== "Time"));
+
+//       const data = lines.slice(unitIndex + 1).map((line) => {
+//         const values = line
+//           .trim()
+//           .split(/\s+/)
+//           .map((v) => (isNaN(v) ? null : +v));
+//         return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+//       });
+
+//       setDataRows(data);
+//       setActiveFile(file.name);
+//     };
+//     reader.readAsText(file);
+//   };
+
+//   // Build comparison plots
+//   const plotConfigs = useMemo(() => {
+//     return selectedColumns.map((col) => {
+//       const makeSeries = (rows, label, color) => {
+//         const filtered = rows.filter(
+//           (r) => !isNaN(r["Time"]) && !isNaN(r[col])
+//         );
+//         return {
+//           x: filtered.map((r) => r["Time"]),
+//           y: filtered.map((r) => r[col]),
+//           type: "scatter",
+//           mode: "lines",
+//           name: `${label} - ${col}`,
+//           line: { color },
+//         };
+//       };
+//       return {
+//         col,
+//         data: [
+//           ...(dataRowsA.length
+//             ? [makeSeries(dataRowsA, activeFileA || "File A", "black")]
+//             : []),
+//           ...(dataRowsB.length
+//             ? [makeSeries(dataRowsB, activeFileB || "File B", "red")]
+//             : []),
+//         ],
+//         layout: {
+//           title: `${col} Comparison`,
+//           xaxis: { title: "Time (s)" },
+//           yaxis: { title: `${col} ${columnUnits[col] || ""}` },
+//         },
+//       };
+//     });
+//   }, [
+//     selectedColumns,
+//     dataRowsA,
+//     dataRowsB,
+//     activeFileA,
+//     activeFileB,
+//     columnUnits,
+//   ]);
+
+//   return (
+//     <div className="app-container">
+//       {/* ---------- Folder A ---------- */}
+//       <div className="panel panel-left">
+//         <h3>Folder A</h3>
+//         <DropzoneComponent
+//           onDropFiles={(files) => onDrop(files, setFolderFilesA)}
+//         />
+//         {Object.entries(folderFilesA).map(([folder, files]) => (
+//           <div key={folder}>
+//             <p>{folder}</p>
+//             {files.map((file) => (
+//               <label key={file.name} style={{ display: "block" }}>
+//                 <input
+//                   type="radio"
+//                   name="fileA"
+//                   onChange={() => loadFile(file, setDataRowsA, setActiveFileA)}
+//                   checked={activeFileA === file.name}
+//                 />
+//                 {file.name}
+//               </label>
+//             ))}
+//           </div>
+//         ))}
+//       </div>
+
+//       {/* ---------- Folder B ---------- */}
+//       <div className="panel panel-middle">
+//         <h3>Folder B</h3>
+//         <DropzoneComponent
+//           onDropFiles={(files) => onDrop(files, setFolderFilesB)}
+//         />
+//         {Object.entries(folderFilesB).map(([folder, files]) => (
+//           <div key={folder}>
+//             <p>{folder}</p>
+//             {files.map((file) => (
+//               <label key={file.name} style={{ display: "block" }}>
+//                 <input
+//                   type="radio"
+//                   name="fileB"
+//                   onChange={() => loadFile(file, setDataRowsB, setActiveFileB)}
+//                   checked={activeFileB === file.name}
+//                 />
+//                 {file.name}
+//               </label>
+//             ))}
+//           </div>
+//         ))}
+//       </div>
+
+//       {/* ---------- Parameters & Plots ---------- */}
+//       <div className="panel panel-right">
+//         <h3>Select Parameters</h3>
+//         {availableColumns.map((col) => (
+//           <label key={col} style={{ display: "block" }}>
+//             <input
+//               type="checkbox"
+//               checked={selectedColumns.includes(col)}
+//               onChange={() =>
+//                 setSelectedColumns((prev) =>
+//                   prev.includes(col)
+//                     ? prev.filter((c) => c !== col)
+//                     : [...prev, col]
+//                 )
+//               }
+//             />
+//             {col}
+//           </label>
+//         ))}
+//         <div className="plots">
+//           {plotConfigs.map(({ col, data, layout }) => (
+//             <Plot
+//               key={col}
+//               data={data}
+//               layout={layout}
+//               style={{ width: "80%", height: "400px" }}
+//             />
+//           ))}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// // Dropzone reusable
+// function DropzoneComponent({ onDropFiles }) {
+//   const { getRootProps, getInputProps } = useDropzone({
+//     onDrop: onDropFiles,
+//     multiple: true,
+//     directory: true,
+//   });
+//   return (
+//     <div {...getRootProps()} className="dropzone">
+//       <input {...getInputProps()} webkitdirectory="true" />
+//       <p>Upload Folder</p>
+//     </div>
+//   );
+// }
